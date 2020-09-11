@@ -33,7 +33,7 @@
   iterator: {
     type: "bucket_sample",
     sorting_keys: [],
-    batch_size: 100
+    batch_size: 10
   },
 
   trainer: {
