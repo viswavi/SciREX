@@ -82,8 +82,6 @@ class ScirexModel(Model):
         relation_to_cluster_ids=None,
         metadata=None,
     ):
-        torch.cuda.empty_cache()
-
         output_dict = {}
         loss = 0.0
 
