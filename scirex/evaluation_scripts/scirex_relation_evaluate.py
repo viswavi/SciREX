@@ -94,6 +94,8 @@ def main(args):
         all_metrics = []
         for types in combinations(used_entities, n):
             for doc in gold_data:
+                if "doc_id" not in doc or doc["doc_id"] not in predicted_relations:
+                    continue
                 predicted_data = predicted_relations[doc["doc_id"]]
                 mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
 

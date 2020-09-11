@@ -7,6 +7,8 @@ def predict(clusters_file, saliency_file, output_file):
 
     with open(output_file, "w") as f:
         for doc in clusters:
+            if "doc_id" not in doc:
+                continue
             sdoc = saliency[doc["doc_id"]]
             salient_spans = set([(span[0], span[1]) for span in sdoc["saliency"] if span[2] == 1])
 

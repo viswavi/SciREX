@@ -25,6 +25,8 @@ def combine_span_and_cluster_file(span_file, cluster_file) :
     clusters = {item['doc_id'] :  item for item in load_jsonl(cluster_file)}
 
     for doc in spans :
+        if "doc_id" not in doc:
+            continue
         if 'clusters' in clusters[doc['doc_id']] :
             doc['coref'] = clusters[doc['doc_id']]['clusters']
         else :
@@ -78,6 +80,9 @@ def predict(archive_folder, span_file, cluster_file, output_file, cuda_device):
 
             n_ary_relations = output_res['n_ary_relation']
             predicted_relations, scores = n_ary_relations['candidates'], n_ary_relations['scores']
+
+            if 'metadata' not in output_res['n_ary_relation']:
+                continue
 
             metadata = output_res['n_ary_relation']['metadata'][0]
             doc_id = metadata['doc_id']

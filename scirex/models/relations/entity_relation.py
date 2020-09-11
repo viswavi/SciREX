@@ -208,8 +208,9 @@ class RelationExtractor(Model):
             "candidates": output_dict.get("relations_candidates_list", []),
             "gold": output_dict.get("relations_true_list", []),
             "scores": output_dict.get("relation_scores", np.array([])),
-            "metadata" : output_dict['metadata']
         }
+        if "metadata" in output_dict:
+            new_output_dict["metadata"] = output_dict['metadata']
 
         if len(new_output_dict["scores"]) > 0:
             new_output_dict["scores"] = new_output_dict["scores"].cpu().data.numpy()
