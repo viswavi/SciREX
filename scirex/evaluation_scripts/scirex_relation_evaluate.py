@@ -95,18 +95,20 @@ def main(args):
         for types in combinations(used_entities, n):
             for doc in gold_data:
                 if "doc_id" not in doc or doc["doc_id"] not in predicted_relations:
-                    continue
-                predicted_data = predicted_relations[doc["doc_id"]]
-                mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
+                    # No predicted relations for this document.
+                    relations = []
+                else:
+                    predicted_data = predicted_relations[doc["doc_id"]]
+                    mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
 
-                relations = list(set([
-                    tuple([mapping.get(v, v) for v in x[0]])
-                    for x in predicted_data["predicted_relations"]
-                    if x[2] == 1
-                ]))
+                    relations = list(set([
+                        tuple([mapping.get(v, v) for v in x[0]])
+                        for x in predicted_data["predicted_relations"]
+                        if x[2] == 1
+                    ]))
 
-                relations = [dict(zip(used_entities, x)) for x in relations]
-                relations = set([tuple((t, x[t]) for t in types) for x in relations])
+                    relations = [dict(zip(used_entities, x)) for x in relations]
+                    relations = set([tuple((t, x[t]) for t in types) for x in relations])
 
                 gold_relations = [tuple((t, x[t]) for t in types) for x in doc['n_ary_relations']]
                 gold_relations = set([x for x in gold_relations if has_all_mentions(doc, x)])
