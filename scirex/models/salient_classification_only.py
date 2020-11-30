@@ -86,7 +86,7 @@ class SalientOnlyModel(Model):
             output_embedding, spans, span_type_labels, span_features, metadata
         )
 
-        if self._loss_weights["saliency"] > 0.0 > 0.0:
+        if self._loss_weights["saliency"] > 0.0 :
             output_dict["saliency"] = self.saliency_forward(
                     output_span_embedding,
                     metadata,

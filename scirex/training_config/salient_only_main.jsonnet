@@ -1,6 +1,6 @@
 // Import template file.
 
-local template = import "template_full.libsonnet";
+local template = import "salient_only_template.jsonnet";
 
 // Set options.
 
