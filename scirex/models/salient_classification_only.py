@@ -53,6 +53,7 @@ class SalientOnlyModel(Model):
 
         for k in loss_weights:
             loss_weights[k] = float(loss_weights[k])
+
         self._loss_weights = loss_weights
         self._permanent_loss_weights = copy.deepcopy(self._loss_weights)
 
@@ -86,7 +87,7 @@ class SalientOnlyModel(Model):
             output_embedding, spans, span_type_labels, span_features, metadata
         )
 
-        if self._loss_weights["saliency"] > 0.0 :
+        if self._loss_weights["saliency"] > 0.0:
             output_dict["saliency"] = self.saliency_forward(
                     output_span_embedding,
                     metadata,
@@ -199,6 +200,8 @@ class SalientOnlyModel(Model):
                 span_labels=span_saliency_labels,
                 metadata=metadata,
             )
+        else:
+            output_saliency["loss"] = torch.tensor(0.0, device='cuda', requires_grad=True)
 
         return output_saliency
 
