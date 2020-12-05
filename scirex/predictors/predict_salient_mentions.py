@@ -17,6 +17,7 @@ import logging
 logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=logging.INFO)
 
 
+
 def predict(archive_folder, test_file, output_file, cuda_device):
     '''
     test_file contains atleast - doc_id, sections, sentences, ner in scirex format.

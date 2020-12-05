@@ -10,9 +10,9 @@ import requests
 import time
 import wget #       pip install wget
 
-full_data_download_script = "/projects/ogma1/vijayv/ScigraphIE/full_data_downloads.sh"
-metadata_download_script = "/projects/ogma1/vijayv/ScigraphIE/metadata_downloads.sh"
-caches_directory = "/projects/ogma1/vijayv/ScigraphIE/"
+full_data_download_script = "/projects/metis0_ssd/users/vijayv/ScigraphIE/full_data_downloads.sh"
+metadata_download_script = "/projects/metis0_ssd/users/vijayv/ScigraphIE/metadata_downloads.sh"
+caches_directory = "/projects/metis0_ssd/users/vijayv/s2orc_caches"
 
 class S2OrcEntry:
     def __init__(self, shard_id, doc_id, doc_hash):
@@ -52,9 +52,9 @@ def scirex_document_to_title(doc):
 
 
 def get_scirex_docids():
-    scirex_train = jsonlines.open("/projects/ogma1/vijayv/SciREX/scirex_dataset/release_data/train.jsonl")
-    scirex_test = jsonlines.open("/projects/ogma1/vijayv/SciREX/scirex_dataset/release_data/test.jsonl")
-    scirex_dev = jsonlines.open("/projects/ogma1/vijayv/SciREX/scirex_dataset/release_data/dev.jsonl")
+    scirex_train = jsonlines.open("/projects/metis0_ssd/users/vijayv/SciREX/scirex_dataset/release_data/train.jsonl")
+    scirex_test = jsonlines.open("/projects/metis0_ssd/users/vijayv/SciREX/scirex_dataset/release_data/test.jsonl")
+    scirex_dev = jsonlines.open("/projects/metis0_ssd/users/vijayv/SciREX/scirex_dataset/release_data/dev.jsonl")
 
     scirex_training_docids = []
     for doc in scirex_train:
