@@ -24,6 +24,7 @@ class SpanClassifier(Model):
         mention_feedforward: FeedForward,
         label_namespace: str,
         n_features: int = 0,
+        graph_embedding_dim: int = 0,
         initializer: InitializerApplicator = InitializerApplicator(),
         regularizer: Optional[RegularizerApplicator] = None,
         document_embedding: torch.nn.Embedding = None,
@@ -33,7 +34,7 @@ class SpanClassifier(Model):
         self._label_namespace = label_namespace
 
         self._mention_feedforward = TimeDistributed(mention_feedforward)
-        self._ner_scorer = TimeDistributed(torch.nn.Linear(mention_feedforward.get_output_dim() + n_features, 1))
+        self._ner_scorer = TimeDistributed(torch.nn.Linear(mention_feedforward.get_output_dim() + n_features + graph_embedding_dim, 1))
         self._ner_metrics = BinaryThresholdF1()
         self._document_embedding = document_embedding
         self._doc_to_idx_mapping = doc_to_idx_mapping
@@ -59,16 +60,16 @@ class SpanClassifier(Model):
         metadata: List[Dict[str, Any]] = None,
     ) -> Dict[str, torch.Tensor]:
         # Shape: (Batch_size, Number of spans, H)
+        span_feedforward = self._mention_feedforward(span_embeddings)
+
         document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device='cuda')
+        print(f"Processing documents {document_idxs}")
         graph_features = self._document_embedding(document_idxs)
         (batch_size, num_spans, _) = span_embeddings.shape
         graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
-        span_embeddings_with_graph_features = torch.cat((span_embeddings, graph_features), dim=2)
 
-        span_feedforward = self._mention_feedforward(span_embeddings_with_graph_features)
-
-        if span_features is not None :
-            span_feedforward = torch.cat([span_feedforward, span_features], dim=-1)
+        if span_features is not None:
+            span_feedforward = torch.cat([span_feedforward, span_features, graph_features], dim=-1)
 
         ner_scores = self._ner_scorer(span_feedforward).squeeze(-1) #(B, NS)
         ner_probs = torch.sigmoid(ner_scores)

@@ -5,7 +5,7 @@ function(p) {
 
   local bert_base_dim = 768,
   local lstm_hidden_size = 200,
-  local graph_embedding_dim = 128,
+  local graph_embedding_dimension = 128,
   local token_embedding_dim = bert_base_dim,
   local context_encoder_dim = 2 * lstm_hidden_size,
   local endpoint_span_embedding_dim = 2 * context_encoder_dim,
@@ -13,7 +13,7 @@ function(p) {
   local span_embedding_dim = endpoint_span_embedding_dim + attended_span_embedding_dim,
   local n_features = 1 + 4 + 5,
   local featured_embedding_dim = span_embedding_dim + n_features,
-  local featured_and_graph_embedding_dim = span_embedding_dim + n_features + graph_embedding_dim,
+  local featured_and_graph_embedding_dim = span_embedding_dim + n_features + graph_embedding_dimension,
 
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -84,8 +84,9 @@ function(p) {
         antecedent_feedforward: make_feedforward(featured_embedding_dim),
       },
       saliency_classifier: {
-        mention_feedforward: make_feedforward(featured_and_graph_embedding_dim),
+        mention_feedforward: make_feedforward(featured_embedding_dim),
         label_namespace: "span_saliency_labels",
+        graph_embedding_dim: graph_embedding_dimension,
         n_features: n_features
       },
     }
