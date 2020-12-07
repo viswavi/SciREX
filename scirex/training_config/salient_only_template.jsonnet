@@ -84,9 +84,8 @@ function(p) {
         antecedent_feedforward: make_feedforward(featured_embedding_dim),
       },
       saliency_classifier: {
-        mention_feedforward: make_feedforward(featured_embedding_dim),
+        mention_feedforward: make_feedforward(featured_and_graph_embedding_dim),
         label_namespace: "span_saliency_labels",
-        graph_embedding_dim: graph_embedding_dimension,
         n_features: n_features
       },
     }
