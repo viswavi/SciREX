@@ -11,7 +11,10 @@ local params = {
     saliency: std.extVar('lw'),
   },
   relation_cardinality: std.parseInt(std.extVar('relation_cardinality')),
-  exact_match: std.extVar('em')
+  exact_match: std.extVar('em'),
+  in_edges_tfidf_path: std.extVar("in_edges_tfidf_path"),
+  out_edges_tfidf_path: std.extVar("out_edges_tfidf_path"),
+  undirected_edges_tfidf_path: std.extVar("undirected_edges_tfidf_path"),
 };
 
 template(params)

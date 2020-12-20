@@ -11,6 +11,7 @@ function(p) {
   local attended_span_embedding_dim = context_encoder_dim,
   local span_embedding_dim = endpoint_span_embedding_dim + attended_span_embedding_dim,
   local n_features = 1 + 4 + 5,
+  local n_tfidf_features = 1,
   local featured_embedding_dim = span_embedding_dim + n_features,
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +72,9 @@ function(p) {
     text_field_embedder: text_field_embedder,
     loss_weights: p.loss_weights,
     lexical_dropout: 0.2,
+    in_edges_tfidf_path: p.in_edges_tfidf_path,
+    out_edges_tfidf_path: p.out_edges_tfidf_path,
+    undirected_edges_tfidf_path: p.undirected_edges_tfidf_path,
     display_metrics: ["validation_metric"],
     context_layer: lstm_context_encoder,
     modules: {
@@ -80,7 +84,8 @@ function(p) {
       saliency_classifier: {
         mention_feedforward: make_feedforward(featured_embedding_dim),
         label_namespace: "span_saliency_labels",
-        n_features: n_features
+        n_features: n_features,
+        n_tfidf_features: n_tfidf_features
       },
     }
   },

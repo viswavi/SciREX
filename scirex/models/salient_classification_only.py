@@ -34,6 +34,9 @@ class SalientOnlyModel(Model):
         modules: Params,
         loss_weights: Dict[str, int],
         lexical_dropout: float = 0.2,
+        in_edges_tfidf_path: str = None,
+        out_edges_tfidf_path: str = None,
+        undirected_edges_tfidf_path: str = None,
         initializer: InitializerApplicator = InitializerApplicator(),
         regularizer: Optional[RegularizerApplicator] = None,
         display_metrics: List[str] = None,
@@ -46,9 +49,16 @@ class SalientOnlyModel(Model):
 
         modules = Params(modules)
 
+        in_edges_tfidf_map = json.load(open(in_edges_tfidf_path))
+        out_edges_tfidf_map = json.load(open(out_edges_tfidf_path))
+        undirected_edges_tfidf_map = json.load(open(undirected_edges_tfidf_path))
+
         self._saliency_classifier = SpanClassifier.from_params(
             vocab=vocab,
-            params=modules.pop("saliency_classifier")
+            params=modules.pop("saliency_classifier"),
+            in_edges_tfidf_map=in_edges_tfidf_map,
+            out_edges_tfidf_map=out_edges_tfidf_map,
+            undirected_edges_tfidf_map=undirected_edges_tfidf_map,
         )
         self._endpoint_span_extractor = EndpointSpanExtractor(
             context_layer.get_output_dim(), combination="x,y"
