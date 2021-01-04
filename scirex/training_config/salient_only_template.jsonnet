@@ -13,7 +13,6 @@ function(p) {
   local span_embedding_dim = endpoint_span_embedding_dim + attended_span_embedding_dim,
   local n_features = 1 + 4 + 5,
   local featured_embedding_dim = span_embedding_dim + n_features,
-  local featured_and_graph_embedding_dim = span_embedding_dim + n_features + graph_embedding_dim,
 
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -84,9 +83,10 @@ function(p) {
         antecedent_feedforward: make_feedforward(featured_embedding_dim),
       },
       saliency_classifier: {
-        mention_feedforward: make_feedforward(featured_and_graph_embedding_dim),
+        mention_feedforward: make_feedforward(featured_embedding_dim),
         label_namespace: "span_saliency_labels",
-        n_features: n_features
+        n_features: n_features,
+        graph_embedding_dim: graph_embedding_dim,
       },
     }
   },

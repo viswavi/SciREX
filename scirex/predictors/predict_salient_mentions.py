@@ -30,6 +30,7 @@ def predict(archive_folder, test_file, output_file, cuda_device):
     import_submodules("scirex")
     logging.info("Loading Model from %s", archive_folder)
     archive_file = os.path.join(archive_folder, "model.tar.gz")
+
     archive = load_archive(archive_file, cuda_device)
     model = archive.model
     model.eval()
