@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--gold-file")
 parser.add_argument("--ner-file")
 parser.add_argument("--clusters-file")
+parser.add_argument("--relations-file")
 
 def has_all_mentions(doc, relation):
     has_mentions = all(len(doc["clusters"][x[1]]) > 0 for x in relation)
@@ -80,12 +81,49 @@ def main(args):
             merge_method_subrelations(doc)
             doc['clusters'] = {x:v for x, v in doc['coref'].items() if len(v) > 0}
 
+    predicted_relations = convert_to_dict(load_jsonl(args.relations_file))
+
     predicted_span_to_gold_span_map: Dict[str, Dict[tuple, tuple]] = ner_metrics(gold_data, predicted_ner)
     get_types_of_clusters(predicted_ner, predicted_salient_clusters)
     get_types_of_clusters(convert_to_dict(gold_data), convert_to_dict(gold_data))
     predicted_cluster_to_gold_cluster_map = clustering_metrics(
         gold_data, predicted_salient_clusters, predicted_span_to_gold_span_map
     )
+
+    for n in [2, 4] :
+        all_metrics = []
+        for types in combinations(used_entities, n):
+            for doc in gold_data:
+                predicted_data = predicted_relations[doc["doc_id"]]
+                mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
+
+                relations = list(set([
+                    tuple([mapping.get(v, v) for v in x[0]])
+                    for x in predicted_data["predicted_relations"]
+                    if x[2] == 1
+                ]))
+
+                relations = [dict(zip(used_entities, x)) for x in relations]
+                relations = set([tuple((t, x[t]) for t in types) for x in relations])
+
+                gold_relations = [tuple((t, x[t]) for t in types) for x in doc['n_ary_relations']]
+                gold_relations = set([x for x in gold_relations if has_all_mentions(doc, x)])
+
+                matched = relations & gold_relations
+
+                metrics = {
+                    "p": len(matched) / (len(relations) + 1e-7),
+                    "r": len(matched) / (len(gold_relations) + 1e-7),
+                }
+                metrics["f1"] = 2 * metrics["p"] * metrics["r"] / (metrics["p"] + metrics["r"] + 1e-7)
+
+                if len(gold_relations) > 0:
+                    all_metrics.append(metrics)
+
+        all_metrics = pd.DataFrame(all_metrics)
+        print(f"Relation Metrics n={n}")
+        print(all_metrics.describe().loc['mean'][['p', 'r', 'f1']])
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
