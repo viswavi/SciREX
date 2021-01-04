@@ -67,7 +67,7 @@ function(p) {
   test_data_path: std.extVar("TEST_PATH"),
 
   model: {
-    type: "salient_classification_only",
+    type: "ner_only",
     text_field_embedder: text_field_embedder,
     loss_weights: p.loss_weights,
     lexical_dropout: 0.2,
@@ -77,10 +77,10 @@ function(p) {
       coref: {
         antecedent_feedforward: make_feedforward(featured_embedding_dim),
       },
-      saliency_classifier: {
-        mention_feedforward: make_feedforward(featured_embedding_dim),
-        label_namespace: "span_saliency_labels",
-        n_features: n_features
+      ner: {
+        mention_feedforward: make_feedforward(context_encoder_dim),
+        label_encoding: 'BIOUL',
+        exact_match: p.exact_match
       },
     }
   },

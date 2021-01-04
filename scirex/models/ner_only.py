@@ -21,8 +21,8 @@ from scirex.models.span_classifiers.span_classifier import SpanClassifier
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@Model.register("salient_classification_only")
-class SalientOnlyModel(Model):
+@Model.register("ner_only")
+class NEROnlyModel(Model):
     def __init__(
         self,
         vocab: Vocabulary,
@@ -35,7 +35,7 @@ class SalientOnlyModel(Model):
         regularizer: Optional[RegularizerApplicator] = None,
         display_metrics: List[str] = None,
     ) -> None:
-        super(SalientOnlyModel, self).__init__(vocab, regularizer)
+        super(NEROnlyModel, self).__init__(vocab, regularizer)
 
         self._text_field_embedder = text_field_embedder
         self._context_layer = context_layer
@@ -43,22 +43,15 @@ class SalientOnlyModel(Model):
 
         modules = Params(modules)
 
-        self._saliency_classifier = SpanClassifier.from_params(
-            vocab=vocab, params=modules.pop("saliency_classifier")
-        )
-        self._endpoint_span_extractor = EndpointSpanExtractor(
-            context_layer.get_output_dim(), combination="x,y"
-        )
-        self._attentive_span_extractor = SelfAttentiveSpanExtractor(input_dim=context_layer.get_output_dim())
+        self._ner = NERTagger.from_params(vocab=vocab, params=modules.pop("ner"))
 
         for k in loss_weights:
             loss_weights[k] = float(loss_weights[k])
-
         self._loss_weights = loss_weights
         self._permanent_loss_weights = copy.deepcopy(self._loss_weights)
 
         self._display_metrics = display_metrics
-        self._multi_task_loss_metrics = {k: Average() for k in ["saliency"]}
+        self._multi_task_loss_metrics = {k: Average() for k in ["ner"]}
 
         self.training_mode = True
         self.prediction_mode = False
@@ -83,18 +76,9 @@ class SalientOnlyModel(Model):
 
         output_embedding = self.embedding_forward(text)
 
-        output_span_embedding = self.span_embeddings_forward(
-            output_embedding, spans, span_type_labels, span_features, metadata
-        )
-
-        if self._loss_weights["saliency"] > 0.0:
-            output_dict["saliency"] = self.saliency_forward(
-                    output_span_embedding,
-                    metadata,
-                    span_saliency_labels,
-                    span_cluster_labels,
-            )
-            loss += self._loss_weights["saliency"] * output_dict["saliency"]["loss"]
+        if self._loss_weights["ner"] > 0.0:
+            output_dict["ner"] = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
+            loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]
 
         output_dict["loss"] = loss
         for k in self._multi_task_loss_metrics:
@@ -140,151 +124,49 @@ class SalientOnlyModel(Model):
             "lengths": sentence_lengths,
         }
         return output_embedding
-        
 
-    def span_embeddings_forward(self, output_embedding, spans, span_type_labels, span_features, metadata):
-        output_span_embeddings = {"valid": False}
+    def ner_forward(self, output_embedding, ner_type_labels, metadata):
+        output_ner = {"loss": 0.0}
 
-        if spans.nelement() != 0:
-            span_mask, spans, span_embeddings = self.extract_span_embeddings(
-                output_embedding["contextualised"], spans
-            )
-
-            if span_mask.sum() != 0:
-                span_offset = self.offset_span_by_para_start(metadata, spans, span_mask)
-                span_position = self.get_span_position(metadata, span_offset)
-                span_type_labels_one_hot = self.get_span_one_hot_labels(
-                    "span_type_labels", span_type_labels, spans
-                )
-
-                span_features = torch.cat(
-                    [span_position, span_type_labels_one_hot, span_features.float()], dim=-1
-                )
-                featured_span_embeddings = torch.cat([span_embeddings, span_features], dim=-1)
-                span_ix = span_mask.view(-1).nonzero().squeeze(1).long()
-
-                output_span_embeddings = {
-                    "span_mask": span_mask,
-                    "span_ix": span_ix,
-                    "spans": span_offset,
-                    "span_embeddings": span_embeddings,
-                    "featured_span_embeddings": featured_span_embeddings,
-                    "span_type_labels": span_type_labels_one_hot,
-                    "span_features": span_features.float(),
-                    "valid": True,
-                }
-
-        return output_span_embeddings
-
-    def saliency_forward(
-        self,
-        output_span_embedding,
-        metadata,
-        span_saliency_labels,
-        span_cluster_labels,
-        saliency_threshold=None
-    ):
-        output_saliency = {"loss": 0.0}
-        if output_span_embedding["valid"]:
-            spans, featured_span_embeddings, span_ix, span_mask = (
-                output_span_embedding["spans"],
-                output_span_embedding["featured_span_embeddings"],
-                output_span_embedding["span_ix"],
-                output_span_embedding["span_mask"],
-            )
-
-            output_saliency = self._saliency_classifier(
-                spans=spans,
-                span_embeddings=featured_span_embeddings,
-                span_features=output_span_embedding["span_features"],
-                span_labels=span_saliency_labels,
-                metadata=metadata,
-            )
-        else:
-            output_saliency["loss"] = torch.tensor(0.0, device='cuda', requires_grad=True)
-
-        return output_saliency
-
-    def get_span_one_hot_labels(self, label_namespace, span_labels, spans):
-        n_labels = self.vocab.get_vocab_size(label_namespace)
-        span_labels_one_hot = torch.zeros((span_labels.size(0), span_labels.size(1), n_labels)).to(
-            spans.device
+        output_ner = self._ner(
+            output_embedding["contextualised"], output_embedding["mask"], ner_type_labels, metadata
         )
-        span_labels_one_hot.scatter_(-1, span_labels.unsqueeze(-1), 1)
-        return span_labels_one_hot
 
-    @staticmethod
-    def get_span_position(metadata, span_offset):
-        doc_length = metadata[0]["document_metadata"]["doc_length"]
-        span_position = span_offset.float().mean(-1, keepdim=True) / doc_length
-        return span_position
+        if self.prediction_mode:
+            output_ner = self._ner.decode(output_ner)
+            output_ner["spans"] = output_ner["spans"].to(output_embedding["text"].device).long()
+            output_ner["span_labels"] = output_ner["span_labels"].to(output_embedding["text"].device).long()
 
-    @staticmethod
-    def offset_span_by_para_start(metadata, spans, span_mask):
-        start_pos_in_doc = torch.LongTensor([x["start_pos_in_doc"] for x in metadata]).to(
-            spans.device
-        )  # (B,)
-        para_offset = start_pos_in_doc.unsqueeze(1).unsqueeze(2)  # (B, 1, 1)
-        span_offset = spans + (para_offset * span_mask.unsqueeze(-1).long())
-        return span_offset
-
-    def extract_span_embeddings(self, contextualized_embeddings, spans):
-        attended_span_embeddings = self._attentive_span_extractor(contextualized_embeddings, spans)
-        span_mask = (spans[:, :, 0] >= 0).long()
-        spans = F.relu(spans.float()).long()
-        endpoint_span_embeddings = self._endpoint_span_extractor(contextualized_embeddings, spans)
-        span_embeddings = torch.cat([endpoint_span_embeddings, attended_span_embeddings], -1)
-        return span_mask, spans, span_embeddings
+        return output_ner
 
     @overrides
     def decode(self, output_dict: Dict[str, torch.Tensor]):
         res = {}
-        res["saliency"] = self._saliency_classifier.decode(output_dict["saliency"])
-
+        res["ner"] = self._ner.decode(output_dict["ner"])
         return res
-
-    def decode_saliency(self, batch, saliency_threshold):
-        output_embedding = self.embedding_forward(text=batch["text"])
-        output_span_embedding = self.span_embeddings_forward(
-            output_embedding=output_embedding,
-            spans=batch["spans"],
-            span_type_labels=batch["span_type_labels"],
-            span_features=batch["span_features"],
-            metadata=batch["metadata"],
-        )
-
-        output_saliency = self.saliency_forward(
-            output_span_embedding=output_span_embedding,
-            metadata=batch["metadata"],
-            span_saliency_labels=batch["span_saliency_labels"],
-            span_cluster_labels=batch["span_cluster_labels"],
-            saliency_threshold=saliency_threshold,
-        )
-
-        return self._saliency_classifier.decode(output_saliency)
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         """
         Get all metrics from all modules. For the ones that shouldn't be displayed, prefix their
         keys with an underscore.
         """
-        metrics_saliency = self._saliency_classifier.get_metrics(reset=reset)
+        metrics_ner = self._ner.get_metrics(reset=reset)
         metrics_loss = {"loss_" + k: v.get_metric(reset) for k, v in self._multi_task_loss_metrics.items()}
         metrics_loss = {k: (v.item() if hasattr(v, "item") else v) for k, v in metrics_loss.items()}
 
         # Make sure that there aren't any conflicting names.
         metric_names = (
-            list(metrics_saliency.keys())
+            list(metrics_ner.keys())
             + list(metrics_loss.keys())
         )
         assert len(set(metric_names)) == len(metric_names)
         all_metrics = dict(
-            list(metrics_saliency.items())
+            list(metrics_ner.items())
             + list(metrics_loss.items())
         )
 
         all_metrics["validation_metric"] = (
-            self._loss_weights["saliency"] * nan_to_zero(metrics_saliency.get("span_f1", 0))
+            self._loss_weights["ner"] * nan_to_zero(metrics_ner.get("ner_f1-measure", 0))
         )
 
         self._display_metrics.append("validation_metric")
