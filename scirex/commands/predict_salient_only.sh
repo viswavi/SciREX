@@ -30,4 +30,5 @@ echo "Evaluating on all Predicted steps "
 python3.7  scirex/evaluation_scripts/salient_only_evaluate.py \
 --gold-file $test_file \
 --ner-file $test_output_folder/ner_predictions.jsonl \
+--salient-mentions-file $test_output_folder/salient_mentions_predictions.jsonl \
 --clusters-file $test_output_folder/salient_clusters_predictions.jsonl \
