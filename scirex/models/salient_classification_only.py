@@ -81,7 +81,12 @@ class SalientOnlyModel(Model):
         output_dict = {}
         loss = 0.0
 
-        output_embedding = self.embedding_forward(text)
+        citance_section = False
+        span_indices = set(spans.view(-1).tolist())
+        if len(span_indices) == 1 and list(span_indices)[0] == -1:
+            citance_section = True
+
+        output_embedding = self.embedding_forward(text, citance_section)
 
         output_span_embedding = self.span_embeddings_forward(
             output_embedding, spans, span_type_labels, span_features, metadata
@@ -104,7 +109,7 @@ class SalientOnlyModel(Model):
 
         return output_dict
 
-    def embedding_forward(self, text):
+    def embedding_forward(self, text, citance_section, citance_upweight=3.0):
         # Shape: (batch_size, max_sentence_length, embedding_size)
         text_embeddings = self._lexical_dropout(self._text_field_embedder(text))
         text_mask = util.get_text_field_mask(text)
@@ -115,6 +120,9 @@ class SalientOnlyModel(Model):
         flat_text_mask = text_mask.view(-1).byte()
 
         filtered_text_embeddings = flat_text_embeddings[flat_text_mask.bool()]
+        if citance_section:
+            filtered_text_embeddings = citance_upweight*filtered_text_embeddings
+
         filtered_contextualized_embeddings = self._context_layer(
             filtered_text_embeddings.unsqueeze(0),
             torch.ones((1, filtered_text_embeddings.size(0)), device=filtered_text_embeddings.device).byte(),
@@ -244,7 +252,12 @@ class SalientOnlyModel(Model):
         return res
 
     def decode_saliency(self, batch, saliency_threshold):
-        output_embedding = self.embedding_forward(text=batch["text"])
+        citance_section = False
+        span_indices = set(batch["spans"].view(-1).tolist())
+        if len(span_indices) == 1 and list(span_indices)[0] == -1:
+            citance_section = True
+
+        output_embedding = self.embedding_forward(text=batch["text"], citance_section=citance_section)
         output_span_embedding = self.span_embeddings_forward(
             output_embedding=output_embedding,
             spans=batch["spans"],
