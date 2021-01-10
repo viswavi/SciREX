@@ -13,7 +13,7 @@ fi
 echo "Predicting Salient Mentions"
 python scirex/predictors/predict_salient_mentions.py \
 $salient_only_archive \
-$test_output_folder/ner_predictions.jsonl \
+scirex_dataset/release_data/test.jsonl \
 $test_output_folder/salient_mentions_predictions.jsonl \
 $cuda_device
 
