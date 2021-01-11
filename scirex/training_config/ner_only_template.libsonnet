@@ -5,6 +5,7 @@ function(p) {
 
   local bert_base_dim = 768,
   local lstm_hidden_size = 200,
+  local graph_embedding_dim = 128,
   local token_embedding_dim = bert_base_dim,
   local context_encoder_dim = 2 * lstm_hidden_size,
   local endpoint_span_embedding_dim = 2 * context_encoder_dim,
@@ -80,7 +81,8 @@ function(p) {
       ner: {
         mention_feedforward: make_feedforward(context_encoder_dim),
         label_encoding: 'BIOUL',
-        exact_match: p.exact_match
+        exact_match: p.exact_match,
+        graph_embedding_dim: graph_embedding_dim,
       },
     }
   },

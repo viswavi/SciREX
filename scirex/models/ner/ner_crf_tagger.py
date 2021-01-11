@@ -23,6 +23,9 @@ class NERTagger(Model):
         exact_match: bool = False,
         initializer: InitializerApplicator = InitializerApplicator(),
         regularizer: Optional[RegularizerApplicator] = None,
+        document_embedding: torch.nn.Embedding = None,
+        doc_to_idx_mapping: dict = None,
+        graph_embedding_dim: int = None,
     ) -> None:
         super(NERTagger, self).__init__(vocab, regularizer)
 
@@ -35,8 +38,10 @@ class NERTagger(Model):
 
         self._mention_feedforward = TimeDistributed(mention_feedforward)
 
+        self._use_graph_embeddings = graph_embedding_dim is not None
+        graph_features_dim = 0 if graph_embedding_dim is None else graph_embedding_dim
         self._ner_scorer = TimeDistributed(
-            torch.nn.Linear(mention_feedforward.get_output_dim(), self._n_labels)
+            torch.nn.Linear(mention_feedforward.get_output_dim() + graph_features_dim, self._n_labels)
         )
         constraints = allowed_transitions(
             label_encoding, self.vocab.get_index_to_token_vocabulary(label_namespace)
@@ -52,6 +57,9 @@ class NERTagger(Model):
                 vocabulary=vocab, tag_namespace=label_namespace, label_encoding=label_encoding
             )
 
+        self._document_embedding = document_embedding
+        self._doc_to_idx_mapping = doc_to_idx_mapping
+
         initializer(self)
 
     @overrides
@@ -62,10 +70,19 @@ class NERTagger(Model):
         ner_labels: torch.IntTensor = None,
         metadata: List[Dict[str, Any]] = None,
     ) -> Dict[str, torch.Tensor]:
+        if self._use_graph_embeddings:
+            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device='cuda:3')
+            graph_features = self._document_embedding(document_idxs)
+            (batch_size, num_spans, _) = text_embeddings.shape
+            graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
 
         # Shape: (Batch_size, Number of spans, H)
         span_feedforward = self._mention_feedforward(text_embeddings)
-        ner_scores = self._ner_scorer(span_feedforward)
+        if self._use_graph_embeddings:
+            span_feedforward_augmented = torch.cat([span_feedforward, graph_features], dim=-1)
+        else:
+            span_feedforward_augmented = span_feedforward
+        ner_scores = self._ner_scorer(span_feedforward_augmented)
         predicted_ner = self._ner_crf.viterbi_tags(ner_scores, text_mask)
 
         predicted_ner = [x for x, y in predicted_ner]
