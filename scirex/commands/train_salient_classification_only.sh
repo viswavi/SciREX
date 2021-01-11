@@ -13,13 +13,14 @@ export CUDA_DEVICE=$CUDA_DEVICE
 
 export IS_LOWERCASE=true
 
-export DATA_BASE_PATH=scirex_dataset/data_with_citances_ctx_1_sorted_by_embedding_distance
+export DATA_BASE_PATH=scirex_dataset/release_data/test.jsonl
+
 
 export TRAIN_PATH=$DATA_BASE_PATH/train.jsonl
 export DEV_PATH=$DATA_BASE_PATH/dev.jsonl
 export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
-export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_salient_only_ctx_1_sorted_by_embedding_distance_upweighted_3x/$1}
+OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_salient_only_ctx_1_reverse_sorted_by_embedding_distance_upweighted_3x/$1}
 
 export bert_fine_tune=10,11,pooler
 
