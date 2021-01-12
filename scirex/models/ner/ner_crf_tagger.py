@@ -25,7 +25,6 @@ class NERTagger(Model):
         regularizer: Optional[RegularizerApplicator] = None,
         document_embedding: torch.nn.Embedding = None,
         doc_to_idx_mapping: dict = None,
-        graph_embedding_dim: int = None,
     ) -> None:
         super(NERTagger, self).__init__(vocab, regularizer)
 
@@ -36,12 +35,11 @@ class NERTagger(Model):
         self.label_map = self.vocab.get_index_to_token_vocabulary(label_namespace)
         print(self.label_map)
 
+        self._use_graph_embeddings = True
         self._mention_feedforward = TimeDistributed(mention_feedforward)
 
-        self._use_graph_embeddings = graph_embedding_dim is not None
-        graph_features_dim = 0 if graph_embedding_dim is None else graph_embedding_dim
         self._ner_scorer = TimeDistributed(
-            torch.nn.Linear(mention_feedforward.get_output_dim() + graph_features_dim, self._n_labels)
+            torch.nn.Linear(mention_feedforward.get_output_dim(), self._n_labels)
         )
         constraints = allowed_transitions(
             label_encoding, self.vocab.get_index_to_token_vocabulary(label_namespace)
@@ -77,12 +75,11 @@ class NERTagger(Model):
             graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
 
         # Shape: (Batch_size, Number of spans, H)
-        span_feedforward = self._mention_feedforward(text_embeddings)
         if self._use_graph_embeddings:
-            span_feedforward_augmented = torch.cat([span_feedforward, graph_features], dim=-1)
+            span_feedforward = self._mention_feedforward(torch.cat([text_embeddings, graph_features], dim=-1))
         else:
-            span_feedforward_augmented = span_feedforward
-        ner_scores = self._ner_scorer(span_feedforward_augmented)
+            span_feedforward = self._mention_feedforward(text_embeddings)
+        ner_scores = self._ner_scorer(span_feedforward)
         predicted_ner = self._ner_crf.viterbi_tags(ner_scores, text_mask)
 
         predicted_ner = [x for x, y in predicted_ner]

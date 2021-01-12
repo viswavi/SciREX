@@ -8,6 +8,7 @@ function(p) {
   local graph_embedding_dim = 128,
   local token_embedding_dim = bert_base_dim,
   local context_encoder_dim = 2 * lstm_hidden_size,
+  local context_encoder_with_graph_dim = 2 * lstm_hidden_size + graph_embedding_dim,
   local endpoint_span_embedding_dim = 2 * context_encoder_dim,
   local attended_span_embedding_dim = context_encoder_dim,
   local span_embedding_dim = endpoint_span_embedding_dim + attended_span_embedding_dim,
@@ -82,10 +83,9 @@ function(p) {
         antecedent_feedforward: make_feedforward(featured_embedding_dim),
       },
       ner: {
-        mention_feedforward: make_feedforward(context_encoder_dim),
+        mention_feedforward: make_feedforward(context_encoder_with_graph_dim),
         label_encoding: 'BIOUL',
         exact_match: p.exact_match,
-        graph_embedding_dim: graph_embedding_dim,
       },
     }
   },
