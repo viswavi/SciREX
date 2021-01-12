@@ -69,6 +69,9 @@ function(p) {
 
   model: {
     type: "ner_only",
+    use_citation_graph_embeddings: p.use_citation_graph_embeddings,
+    citation_embedding_file: p.citation_embedding_file,
+    doc_to_idx_mapping_file: p.doc_to_idx_mapping_file,
     text_field_embedder: text_field_embedder,
     loss_weights: p.loss_weights,
     lexical_dropout: 0.2,
