@@ -3,12 +3,12 @@ export ner_output_folder=test_outputs_ner/
 
 echo "Predicting NER"
 python scirex/predictors/predict_ner.py \
-$scirex_archive \
+$ner_only_archive \
 $test_file \
-$ner_output_folder/ner_predictions.jsonl \
+$ner_output_folder/ner_predictions_with_graph_embeddings.jsonl \
 $cuda_device
 
-echo "Evaluating on all Predicted steps "
-python scirex/evaluation_scripts/salient_only_evaluate.py \
+echo "Evaluating on NER only"
+python scirex/evaluation_scripts/ner_evaluate.py \
 --gold-file $test_file \
---ner-file $ner_output_folder/ner_predictions.jsonl
+--ner-file $ner_output_folder/ner_predictions_with_graph_embeddings.jsonl
