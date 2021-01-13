@@ -24,3 +24,10 @@ $test_file \
 $test_file \
 $test_output_folder/relations_predictions_gold_clusters.jsonl \
 $cuda_device
+
+echo "Evaluating on all Predicted steps "
+python scirex/evaluation_scripts/relations_only_evaluate.py \
+--gold-file $test_file \
+--ner-file $test_file \
+--clusters-file $test_file \
+--relations-file $test_output_folder/relations_predictions_gold_clusters.jsonl
