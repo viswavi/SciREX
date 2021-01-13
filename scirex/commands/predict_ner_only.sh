@@ -1,4 +1,4 @@
-export test_file=scirex_dataset/release_data/test.jsonl
+export test_file=scirex_dataset/data_with_citances_ctx_1_no_sort/test.jsonl
 export ner_output_folder=test_outputs_ner/
 
 echo "Predicting NER"
