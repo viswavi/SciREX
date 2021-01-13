@@ -201,7 +201,7 @@ class SalientOnlyModel(Model):
                 metadata=metadata,
             )
         else:
-            output_saliency["loss"] = torch.tensor(0.0, device='cuda', requires_grad=True)
+            output_saliency["loss"] = torch.tensor(0.0, device='cuda:1', requires_grad=True)
 
         return output_saliency
 

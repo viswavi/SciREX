@@ -71,10 +71,11 @@ class NERTagger(Model):
         metadata: List[Dict[str, Any]] = None,
     ) -> Dict[str, torch.Tensor]:
         if self._use_graph_embeddings:
-            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device='cuda:3')
-            graph_features = self._document_embedding(document_idxs)
+            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=text_embeddings.device)
+            document_idxs = document_idxs[:len(ner_labels)]
+            graph_features_1 = self._document_embedding(document_idxs)
             (batch_size, num_spans, _) = text_embeddings.shape
-            graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
+            graph_features = graph_features_1.repeat(1, num_spans).view(batch_size, num_spans, -1)
 
         # Shape: (Batch_size, Number of spans, H)
         span_feedforward = self._mention_feedforward(text_embeddings)
@@ -82,6 +83,7 @@ class NERTagger(Model):
             span_feedforward_augmented = torch.cat([span_feedforward, graph_features], dim=-1)
         else:
             span_feedforward_augmented = span_feedforward
+
         ner_scores = self._ner_scorer(span_feedforward_augmented)
         predicted_ner = self._ner_crf.viterbi_tags(ner_scores, text_mask)
 
