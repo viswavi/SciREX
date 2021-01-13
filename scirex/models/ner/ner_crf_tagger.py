@@ -69,7 +69,7 @@ class NERTagger(Model):
         metadata: List[Dict[str, Any]] = None,
     ) -> Dict[str, torch.Tensor]:
         if self._use_graph_embeddings:
-            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device='cuda:3')
+            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=text_embeddings.device)
             graph_features = self._document_embedding(document_idxs)
             (batch_size, num_spans, _) = text_embeddings.shape
             graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)

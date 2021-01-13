@@ -11,4 +11,4 @@ $cuda_device
 echo "Evaluating on NER only"
 python scirex/evaluation_scripts/ner_evaluate.py \
 --gold-file $test_file \
---ner-file $ner_output_folder/ner_predictions_with_graph_embeddings_early_fusion..jsonl
+--ner-file $ner_output_folder/ner_predictions_with_graph_embeddings_early_fusion.jsonl

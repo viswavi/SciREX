@@ -39,7 +39,7 @@ def main(args):
     f1metric = SpanBasedF1Measure(entity_labels=entity_labels)
     predicted_ner = convert_to_dict(load_jsonl(args.ner_file))
 
-    assert len(gold_data) == len(predicted_ner)
+    assert len(gold_data) == len(predicted_ner), breakpoint()
 
     for labeled_doc in gold_data:
         labeled_ner_values = labeled_doc['ner']
