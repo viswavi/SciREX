@@ -75,11 +75,7 @@ class NEROnlyModel(Model):
         loss = 0.0
 
         output_embedding = self.embedding_forward(text)
-        if "text" in output_embedding:
-            device = output_embedding["text"].device
-        else:
-            print("Unexpected!")
-            breakpoint()
+        device = output_embedding["text"].device
 
         if self._loss_weights["ner"] > 0.0:
             ner_output = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
@@ -87,16 +83,17 @@ class NEROnlyModel(Model):
             if True not in body_text:
                 # All citances; just skip this section entirely
                 loss += torch.tensor(0.0, device=device, requires_grad=True)
-            else:
+            else: # Not all citances.
                 if False in body_text:
                     # This batch contains a mix of body sentences and citances
+                    original_masks = output_embedding["mask"]
                     for m in output_embedding:
                         output_embedding[m] = output_embedding[m][body_text]
                     ner_type_labels = ner_type_labels[body_text]
                     ner_output = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
                     for i, body in enumerate(body_text):
                         if not body:
-                            sum_mask = sum(output_embedding["mask"][i])
+                            sum_mask = sum(original_masks[i])
                             ner_output["gold_tags"].insert(i, [0] * sum_mask)
                             ner_output["tags"].insert(i, [0] * sum_mask)
                 output_dict["ner"] = ner_output
@@ -107,7 +104,6 @@ class NEROnlyModel(Model):
             if k in output_dict:
                 l = output_dict[k]["loss"]
                 self._multi_task_loss_metrics[k](l)
-
         return output_dict
 
     def embedding_forward(self, text):
