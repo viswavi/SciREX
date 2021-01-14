@@ -33,14 +33,12 @@ class RelationExtractor(Model):
     ) -> None:
         super(RelationExtractor, self).__init__(vocab, regularizer)
 
-        self._use_graph_embeddings = graph_embedding_dim is not None
-        graph_features_dim = 0 if graph_embedding_dim is None else graph_embedding_dim
-
         self._antecedent_feedforward = TimeDistributed(antecedent_feedforward)
 
         # This is where we use the graph embeddings
-        self._antecedent_scorer = TimeDistributed(torch.nn.Linear(antecedent_feedforward.get_output_dim() + graph_features_dim, 1))
-        self._span_embedding_size = antecedent_feedforward.get_input_dim() // 4
+        self._antecedent_scorer = TimeDistributed(torch.nn.Linear(antecedent_feedforward.get_output_dim(), 1))
+        self._span_embedding_size =  (antecedent_feedforward.get_input_dim() - graph_embedding_dim) // 4
+        print(f"\n\n\n\nself._span_embedding_size: {self._span_embedding_size}\n\n\n\n")
         self._bias_vectors = torch.nn.Parameter(torch.zeros((1, 4, self._span_embedding_size)))
 
         self._relation_cardinality = relation_cardinality
@@ -183,22 +181,21 @@ class RelationExtractor(Model):
     def get_relation_scores(self, relation_embeddings, metadata):
         # (B, NS, NS, E)
         relation_embeddings = relation_embeddings.view(relation_embeddings.shape[0], relation_embeddings.shape[1], -1) #(P, R, E*4)
-        relation_embeddings = self._antecedent_feedforward(relation_embeddings) #(P, R, e)
+
+        # TODO(Vijay)
+        document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=relation_embeddings.device)
+        assert len(set(document_idxs.tolist())) and len(document_idxs) > 0, breakpoint()
+
+        graph_features = self._document_embedding(document_idxs)
+        (batch_size, num_spans, _) = relation_embeddings.shape
+        graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
+
+        relation_embeddings_augmented = torch.cat([relation_embeddings, graph_features], dim=-1)
+
+        relation_embeddings = self._antecedent_feedforward(relation_embeddings_augmented) #(P, R, e)
         relation_embeddings = relation_embeddings.max(0, keepdim=True)[0]
 
-        if self._use_graph_embeddings:
-            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=relation_embeddings.device)
-            assert len(set(document_idxs.tolist())) and len(document_idxs) > 0, breakpoint()
-
-            graph_features = self._document_embedding(document_idxs[0])
-            (batch_size, num_spans, _) = relation_embeddings.shape
-            graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
-
-            relation_embeddings_augmented = torch.cat([relation_embeddings, graph_features], dim=-1)
-        else:
-            relation_embeddings_augmented = relation_embeddings
-
-        relation_logits = self._antecedent_scorer(relation_embeddings_augmented).squeeze(-1).squeeze(0)
+        relation_logits = self._antecedent_scorer(relation_embeddings).squeeze(-1).squeeze(0)
         relation_scores = torch.sigmoid(relation_logits)
         return relation_scores, relation_logits
 

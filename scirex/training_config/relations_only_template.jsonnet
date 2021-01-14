@@ -11,8 +11,8 @@ function(p) {
   local attended_span_embedding_dim = context_encoder_dim,
   local span_embedding_dim = endpoint_span_embedding_dim + attended_span_embedding_dim,
   local n_features = 1 + 4 + 5,
-  local featured_embedding_dim = span_embedding_dim + n_features,
   local graph_embedding_dim = 128,
+  local featured_embedding_dim = span_embedding_dim + n_features,
 
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -78,13 +78,10 @@ function(p) {
     display_metrics: ["validation_metric"],
     context_layer: lstm_context_encoder,
     modules: {
-      coref: {
-        antecedent_feedforward: make_feedforward(featured_embedding_dim),
-      },
       n_ary_relation: {
-        antecedent_feedforward: make_feedforward(4*featured_embedding_dim),
+        antecedent_feedforward: make_feedforward(4*featured_embedding_dim + graph_embedding_dim),
 	      relation_cardinality: p.relation_cardinality,
-        graph_embedding_dim: graph_embedding_dim
+        graph_embedding_dim: graph_embedding_dim,
       },
     }
   },
