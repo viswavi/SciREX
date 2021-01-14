@@ -84,7 +84,7 @@ function(p) {
       n_ary_relation: {
         antecedent_feedforward: make_feedforward(4*featured_embedding_dim),
 	      relation_cardinality: p.relation_cardinality,
-        graph_embedding_dim: p.graph_embedding_dim
+        graph_embedding_dim: graph_embedding_dim
       },
     }
   },
