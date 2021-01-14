@@ -177,6 +177,7 @@ class RelationsOnlyModel(Model):
         self, output_span_embedding, metadata, relation_to_cluster_ids, span_cluster_labels):
         output_n_ary_relation = {"loss": 0.0}
 
+        skipped = True
         if output_span_embedding["valid"]:
             spans, featured_span_embeddings, span_ix, span_mask = (
                 output_span_embedding["spans"],
@@ -198,6 +199,10 @@ class RelationsOnlyModel(Model):
                     relation_to_cluster_ids=relation_to_cluster_ids,
                     metadata=metadata,
                 )
+                skipped = False
+
+        if skipped:
+            output_n_ary_relation["loss"] = torch.tensor(0, device=output_span_embedding['spans'].device)
 
         return output_n_ary_relation
 
