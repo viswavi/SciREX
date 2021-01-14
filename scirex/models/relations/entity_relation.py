@@ -27,11 +27,19 @@ class RelationExtractor(Model):
         relation_cardinality: int = 2,
         initializer: InitializerApplicator = InitializerApplicator(),
         regularizer: Optional[RegularizerApplicator] = None,
+        document_embedding: torch.nn.Embedding = None,
+        doc_to_idx_mapping: dict = None,
+        graph_embedding_dim: int = None,
     ) -> None:
         super(RelationExtractor, self).__init__(vocab, regularizer)
 
+        self._use_graph_embeddings = graph_embedding_dim is not None
+        graph_features_dim = 0 if graph_embedding_dim is None else graph_embedding_dim
+
         self._antecedent_feedforward = TimeDistributed(antecedent_feedforward)
-        self._antecedent_scorer = TimeDistributed(torch.nn.Linear(antecedent_feedforward.get_output_dim(), 1))
+
+        # This is where we use the graph embeddings
+        self._antecedent_scorer = TimeDistributed(torch.nn.Linear(antecedent_feedforward.get_output_dim() + graph_features_dim, 1))
         self._span_embedding_size = antecedent_feedforward.get_input_dim() // 4
         self._bias_vectors = torch.nn.Parameter(torch.zeros((1, 4, self._span_embedding_size)))
 
@@ -49,6 +57,9 @@ class RelationExtractor(Model):
 
         self._binary_scores = BinaryThresholdF1()
         self._global_scores = NAryRelationMetrics()
+
+        self._document_embedding = document_embedding
+        self._doc_to_idx_mapping = doc_to_idx_mapping
 
         initializer(self)
 
@@ -152,7 +163,7 @@ class RelationExtractor(Model):
             candidate_relations_tensor.unsqueeze(0).expand(paragraph_cluster_embeddings.shape[0], -1, -1),
         )  # (P, R', n, E)
 
-        relation_scores, relation_logits = self.get_relation_scores(all_relation_embeddings)  # (1, R')
+        relation_scores, relation_logits = self.get_relation_scores(all_relation_embeddings, metadata)  # (1, R')
         output_dict = {}
         output_dict["relations_candidates_list"] = candidate_relations
         output_dict["relation_labels"] = candidate_relations_labels
@@ -169,12 +180,27 @@ class RelationExtractor(Model):
 
         return output_dict
 
-    def get_relation_scores(self, relation_embeddings):
+    def get_relation_scores(self, relation_embeddings, metadata):
         # (B, NS, NS, E)
         relation_embeddings = relation_embeddings.view(relation_embeddings.shape[0], relation_embeddings.shape[1], -1) #(P, R, E*4)
         relation_embeddings = self._antecedent_feedforward(relation_embeddings) #(P, R, e)
         relation_embeddings = relation_embeddings.max(0, keepdim=True)[0]
-        relation_logits = self._antecedent_scorer(relation_embeddings).squeeze(-1).squeeze(0)
+
+        if self._use_graph_embeddings:
+            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=relation_embeddings.device)
+            graph_features = self._document_embedding(document_idxs)
+            (batch_size, num_spans, _) = relation_embeddings.shape
+            graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
+
+            print("TODO(Vijay): remove this breakpoint!")
+            breakpoint()
+
+
+            relation_embeddings_augmented = torch.cat([relation_embeddings, graph_features], dim=-1)
+        else:
+            relation_embeddings_augmented = relation_embeddings
+
+        relation_logits = self._antecedent_scorer(relation_embeddings_augmented).squeeze(-1).squeeze(0)
         relation_scores = torch.sigmoid(relation_logits)
         return relation_scores, relation_logits
 

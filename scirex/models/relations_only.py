@@ -2,6 +2,7 @@ import copy
 import logging
 from typing import Dict, List, Optional
 
+import json
 import torch
 import torch.nn.functional as F
 from allennlp.common.params import Params
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class RelationsOnlyModel(Model):
     def __init__(
         self,
+        use_citation_graph_embeddings: str,
+        citation_embedding_file: str,
+        doc_to_idx_mapping_file: str,
         vocab: Vocabulary,
         text_field_embedder: TextFieldEmbedder,
         context_layer: Seq2SeqEncoder,
@@ -40,10 +44,22 @@ class RelationsOnlyModel(Model):
         self._context_layer = context_layer
         self._lexical_dropout = torch.nn.Dropout(p=lexical_dropout)
 
+        if use_citation_graph_embeddings:
+            if citation_embedding_file == "" or doc_to_idx_mapping_file == "":
+                raise ValueError("Must supply citation embedding files to use graph embedding features")
+            self._document_embedding = initialize_graph_embeddings(citation_embedding_file, finetune_embedding=False)
+            self._doc_to_idx_mapping = json.load(open(doc_to_idx_mapping_file))
+        else:
+            self._document_embedding = None
+            self._doc_to_idx_mapping = None
+
         modules = Params(modules)
 
         self._cluster_n_ary_relation = NAryRelationExtractor.from_params(
-            vocab=vocab, params=modules.pop("n_ary_relation")
+            vocab=vocab,
+            params=modules.pop("n_ary_relation"),
+            document_embedding=self._document_embedding,
+            doc_to_idx_mapping=self._doc_to_idx_mapping
         )
 
         self._endpoint_span_extractor = EndpointSpanExtractor(
@@ -313,3 +329,14 @@ def nan_to_zero(n):
         return 0
 
     return n
+
+def initialize_graph_embeddings(graph_embedding_file, finetune_embedding=False):
+    """
+    Initialize graph embedding lookup table, loaded from file.
+    """
+    graph_embedding_array = np.load(graph_embedding_file)
+    num_embeddings, embedding_dim = graph_embedding_array.shape
+    embedding = torch.nn.Embedding(num_embeddings = num_embeddings, embedding_dim = embedding_dim)
+    embedding.weight.data.copy_(torch.from_numpy(graph_embedding_array))
+    embedding.weight.requires_grad = finetune_embedding
+    return embedding
