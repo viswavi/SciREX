@@ -13,13 +13,13 @@ export CUDA_DEVICE=$CUDA_DEVICE
 
 export IS_LOWERCASE=true
 
-export DATA_BASE_PATH=scirex_dataset/release_data
+export DATA_BASE_PATH=scirex_dataset/data_with_citances_ctx_1_no_sort
 
 export TRAIN_PATH=$DATA_BASE_PATH/train.jsonl
 export DEV_PATH=$DATA_BASE_PATH/dev.jsonl
 export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
-export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_relations_only/$1}
+export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_relations_only_with_citances/$1}
 
 export bert_fine_tune=10,11,pooler
 
