@@ -188,13 +188,11 @@ class RelationExtractor(Model):
 
         if self._use_graph_embeddings:
             document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=relation_embeddings.device)
-            graph_features = self._document_embedding(document_idxs)
+            assert len(set(document_idxs.tolist())) and len(document_idxs) > 0, breakpoint()
+
+            graph_features = self._document_embedding(document_idxs[0])
             (batch_size, num_spans, _) = relation_embeddings.shape
             graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
-
-            print("TODO(Vijay): remove this breakpoint!")
-            breakpoint()
-
 
             relation_embeddings_augmented = torch.cat([relation_embeddings, graph_features], dim=-1)
         else:
