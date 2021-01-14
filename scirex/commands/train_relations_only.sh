@@ -23,6 +23,9 @@ export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_relations_o
 
 export bert_fine_tune=10,11,pooler
 
+export use_citation_graph_embeddings=true
+export citation_embedding_file=/projects/ogma1/vijayv/SciREX/graph_embeddings/embeddings.npy
+export doc_to_idx_mapping_file=/projects/ogma1/vijayv/SciREX/graph_embeddings/scirex_docids.json
 nw=1 lw=1 rw=1 em=false \
 relation_cardinality=4 \
 allennlp train -s $OUTPUT_BASE_PATH --include-package scirex $RECOVER $CONFIG_FILE
