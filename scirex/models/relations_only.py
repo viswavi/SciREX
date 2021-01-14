@@ -90,6 +90,7 @@ class RelationsOnlyModel(Model):
                 metadata,
                 relation_to_cluster_ids,
                 span_cluster_labels,
+                device=output_embedding['text'].device,
             )
             loss += self._loss_weights["n_ary_relation"] * output_dict["n_ary_relation"]["loss"]
 
@@ -174,10 +175,10 @@ class RelationsOnlyModel(Model):
         return output_span_embeddings
 
     def relation_forward(
-        self, output_span_embedding, metadata, relation_to_cluster_ids, span_cluster_labels):
+        self, output_span_embedding, metadata, relation_to_cluster_ids, span_cluster_labels, device='cuda'):
         output_n_ary_relation = {"loss": 0.0}
 
-        skipped = True
+        empty_batch = True
         if output_span_embedding["valid"]:
             spans, featured_span_embeddings, span_ix, span_mask = (
                 output_span_embedding["spans"],
@@ -199,10 +200,10 @@ class RelationsOnlyModel(Model):
                     relation_to_cluster_ids=relation_to_cluster_ids,
                     metadata=metadata,
                 )
-                skipped = False
+                empty_batch = False
 
-        if skipped:
-            output_n_ary_relation["loss"] = torch.tensor(0, device=output_span_embedding['spans'].device)
+        if empty_batch or isinstance(output_n_ary_relation["loss"], float):
+            output_n_ary_relation["loss"] = torch.tensor(0.0, device=device, requires_grad=True)
 
         return output_n_ary_relation
 
@@ -259,6 +260,7 @@ class RelationsOnlyModel(Model):
             metadata=batch["metadata"],
             relation_to_cluster_ids=batch.get("relation_to_cluster_ids", None),
             span_cluster_labels=batch["span_cluster_labels"],
+            device=output_embedding['text'].device,
         )
 
         res = {}
