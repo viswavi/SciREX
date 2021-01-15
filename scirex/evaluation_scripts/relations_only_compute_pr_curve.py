@@ -2,12 +2,15 @@ import argparse
 from itertools import combinations
 from typing import Dict
 
+import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.metrics import average_precision_score, f1_score, precision_recall_curve
 
 from scirex.metrics.clustering_metrics import match_predicted_clusters_to_gold
 from scirex.predictors.utils import map_predicted_spans_to_gold, merge_method_subrelations
 from scirex_utilities.entity_utils import used_entities
 from scirex_utilities.json_utilities import load_jsonl
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gold-file")
@@ -83,56 +86,75 @@ def main(args):
         gold_data, predicted_salient_clusters, predicted_span_to_gold_span_map
     )
 
-    for n in [2, 4] :
+    [types] = list(combinations(used_entities, 4))
 
-        tps = 0
-        fps = 0
-        fns = 0
+    y_test = []
+    y_score = []
+    y_pred = []
 
-        all_metrics = []
-        for types in combinations(used_entities, n):
-            for doc in gold_data:
-                predicted_data = predicted_relations[doc["doc_id"]]
-                mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
+    tps = 0
+    fps = 0
+    fns = 0
 
-                relations = list(set([
-                    tuple([mapping.get(v, v) for v in x[0]])
-                    for x in predicted_data["predicted_relations"]
-                    if x[2] == 1
-                ]))
+    for doc in gold_data:
+        predicted_data = predicted_relations[doc["doc_id"]]
 
-                relations = [dict(zip(used_entities, x)) for x in relations]
-                relations = set([tuple((t, x[t]) for t in types) for x in relations])
+        relations = list(set([
+            (tuple(x[0]), x[1], x[2])
+            for x in predicted_data["predicted_relations"]
+        ]))
 
-                gold_relations = [tuple((t, x[t]) for t in types) for x in doc['n_ary_relations']]
-                gold_relations = set([x for x in gold_relations if has_all_mentions(doc, x)])
+        relations = [(dict(zip(used_entities, x)), score, pred) for x, score, pred in relations]
+        relations = set([(tuple(x[t] for t in types), score, pred) for x, score, pred in relations])
 
-                matched = relations & gold_relations
+        gold_relations = doc['n_ary_relations']
+        gold_relations = set([tuple(x[t] for t in types) for x in gold_relations])
 
-                metrics = {
-                    "p": len(matched) / (len(relations) + 1e-7),
-                    "r": len(matched) / (len(gold_relations) + 1e-7),
-                }
-                metrics["f1"] = 2 * metrics["p"] * metrics["r"] / (metrics["p"] + metrics["r"] + 1e-7)
+        relation_tuples = set([x for x, score, pred in relations])
+        matched = gold_relations & relation_tuples
 
-                if len(gold_relations) > 0:
-                    all_metrics.append(metrics)
+        tps += len(matched)
+        fps += len(relation_tuples) - len(matched)
+        fns += len(gold_relations) - len(matched)
 
-                    tps += len(matched)
-                    fps += len(relations) - len(matched)
-                    fns += len(gold_relations) - len(matched)
+        seen_relations = set()
+        for pred_relation in relations:
+            relation = tuple(pred_relation[0])
+            if relation in seen_relations:
+                continue
+            else:
+                seen_relations.add(relation)
+            prob = pred_relation[1]
+            fixed_pred = pred_relation[2]
+            y_test.append(int(relation in gold_relations))
+            y_score.append(prob)
+            y_pred.append(fixed_pred)
 
-        all_metrics = pd.DataFrame(all_metrics)
-        print(f"Relation Metrics n={n}")
-        print(all_metrics.describe().loc['mean'][['p', 'r', 'f1']])
+    average_precision = average_precision_score(y_test, y_score)
+    print(f"Average Precision: {average_precision}")
 
-        manual_prec = float(tps) / (tps + fps)
-        manual_rec = float(tps) / (tps + fns)
-        f1 = 2 * (manual_prec * manual_rec) / (manual_prec + manual_rec)
-        print(f"\nManual statistics:")
-        print(f"Manual Precision: {manual_prec}")
-        print(f"Manual Recall: {manual_rec}")
-        print(f"f1: {f1}\n\n\n")
+    f1 = f1_score(y_test, y_pred)
+    print(f"F1 score (at \"best\" threshold): {f1}")
+
+    precision, recall, _ = precision_recall_curve(y_test, y_score)
+    plt.plot(recall, precision, lw=2, color='navy')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.ylim([-0.05, 1.05])
+    plt.xlim([-0.05, 1.05])
+    plt.grid()
+    plt.title('Precision-Recall (w/ graph embeddings) - AUC={0:0.2f}'.format(average_precision))
+    plt.savefig("/tmp/pr_curve.png")
+    print("Wrote PR curve to /tmp/pr_curve.png")
+
+
+    manual_prec = float(tps) / (tps + fps)
+    manual_rec = float(tps) / (tps + fns)
+    f1 = 2 * (manual_prec * manual_rec) / (manual_prec + manual_rec)
+    print(f"\n\nManual statistics:")
+    print(f"Manual Precision: {manual_prec}")
+    print(f"Manual Recall: {manual_rec}")
+    print(f"f1: {f1}")
 
 if __name__ == "__main__":
     args = parser.parse_args()
