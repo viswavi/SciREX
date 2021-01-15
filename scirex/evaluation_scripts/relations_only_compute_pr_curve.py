@@ -143,9 +143,9 @@ def main(args):
     plt.ylim([-0.05, 1.05])
     plt.xlim([-0.05, 1.05])
     plt.grid()
-    plt.title('Precision-Recall (w/ graph embeddings) - AUC={0:0.2f}'.format(average_precision))
-    plt.savefig("/tmp/pr_curve.png")
-    print("Wrote PR curve to /tmp/pr_curve.png")
+    plt.title('Precision-Recall (w/ citances) - AUC={0:0.2f}'.format(average_precision))
+    plt.savefig("/tmp/pr_curve_with_citances.png")
+    print("Wrote PR curve to /tmp/pr_curve_with_citances.png")
 
 
     manual_prec = float(tps) / (tps + fps)
