@@ -1,4 +1,4 @@
-export test_file=scirex_dataset/release_data/test.jsonl
+export test_file=scirex_dataset/data_with_citances_ctx_1_no_sort/test.jsonl
 export test_output_folder=test_outputs_relations/
 
 # echo "Predicting Relations End-to-End"
@@ -22,7 +22,7 @@ python scirex/predictors/predict_n_ary_relations.py \
 $relations_only_archive \
 $test_file \
 $test_file \
-$test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion.jsonl \
+$test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion_and_citances.jsonl \
 $cuda_device
 
 echo "Evaluating on all Predicted steps "
@@ -30,7 +30,7 @@ python scirex/evaluation_scripts/relations_only_evaluate.py \
 --gold-file $test_file \
 --ner-file $test_file \
 --clusters-file $test_file \
---relations-file $test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion.jsonl
+--relations-file $test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion_and_citances.jsonl
 
 
 echo "Evaluating on all Predicted steps "
