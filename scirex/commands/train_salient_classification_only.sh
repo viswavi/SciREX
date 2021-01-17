@@ -19,7 +19,11 @@ export TRAIN_PATH=$DATA_BASE_PATH/train.jsonl
 export DEV_PATH=$DATA_BASE_PATH/dev.jsonl
 export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
+<<<<<<< HEAD
 export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_salient_only/$1}
+=======
+export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_salient_only_deepwalk_features/$1}
+>>>>>>> 630aacbdb2ff943953d81d077295a7188886c8a7
 
 export bert_fine_tune=10,11,pooler
 
