@@ -66,7 +66,10 @@ class ScirexModel(Model):
             params=modules.pop("saliency_classifier")
         )
         self._cluster_n_ary_relation = NAryRelationExtractor.from_params(
-            vocab=vocab, params=modules.pop("n_ary_relation")
+            vocab=vocab,
+            params=modules.pop("n_ary_relation"),
+            document_embedding=self._document_embedding,
+            doc_to_idx_mapping=self._doc_to_idx_mapping
         )
 
         self._endpoint_span_extractor = EndpointSpanExtractor(
