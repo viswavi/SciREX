@@ -19,7 +19,7 @@ export TRAIN_PATH=$DATA_BASE_PATH/train.jsonl
 export DEV_PATH=$DATA_BASE_PATH/dev.jsonl
 export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
-export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_scirex_full/$1}
+export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_scirex_full_graph/$1}
 
 export bert_fine_tune=10,11,pooler
 export finetune_embedding=false
