@@ -143,7 +143,7 @@ def main(args):
     plt.ylim([-0.05, 1.05])
     plt.xlim([-0.05, 1.05])
     plt.grid()
-    plt.title('Precision-Recall (w/ graph embeddings) - AUC={0:0.2f}'.format(average_precision))
+    plt.title('Precision-Recall (baseline) - AUC={0:0.2f}'.format(average_precision))
     plt.savefig("/tmp/pr_curve.png")
     print("Wrote PR curve to /tmp/pr_curve.png")
 
