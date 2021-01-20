@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from sklearn.metrics import average_precision_score, f1_score, precision_recall_curve
+from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, precision_recall_curve
 
 from scirex.metrics.clustering_metrics import match_predicted_clusters_to_gold
 from scirex.predictors.utils import map_predicted_spans_to_gold, merge_method_subrelations
@@ -77,9 +77,6 @@ def get_types_of_clusters(predicted_ner, predicted_clusters):
             predicted_clusters[doc_id]["types"][c] = list(types)[0]
 
 
-
-
-
 def compute_weighted_auc(gold_data,
                          predicted_ner,
                          predicted_relations,
@@ -89,6 +86,7 @@ def compute_weighted_auc(gold_data,
     pred_scores = []
     y_labels = []
     y_preds = []
+    y_preds_fixed = []
     for types in combinations(used_entities, n):
         for doc in gold_data:
             predicted_data = predicted_relations[doc["doc_id"]]
@@ -109,14 +107,24 @@ def compute_weighted_auc(gold_data,
                     seen_relations.add(ordered_relation)
                     pred_scores.append(relation_score)
                     y_labels.append(ordered_relation in gold_relations)
-                    y_preds.append(relation_score > best_threshold)
+                    y_preds.append(relation_score >= best_threshold)
+                    y_preds_fixed.append(relation_pred)
+
+            for relation_tuple in gold_relations.difference(seen_relations):
+                pred_scores.append(0.0)
+                y_labels.append(True)
+                # y_preds.append(predicted_score >= thresh)
+                y_preds.append(False)
+                y_preds_fixed.append(False)
 
 
     average_precision = average_precision_score(y_labels, pred_scores)
-    print(f"Average Precision: {average_precision}")
 
     f1 = f1_score(y_labels, y_preds)
-    print(f"F1 score (at \"best\" threshold): {f1}")
+    classification_precision = precision_score(y_labels, y_preds)
+    classification_recall = recall_score(y_labels, y_preds)
+
+    f1_fixed = f1_score(y_labels, y_preds_fixed)
 
     precision, recall, thresholds = precision_recall_curve(y_labels, pred_scores)
     
@@ -132,21 +140,23 @@ def compute_weighted_auc(gold_data,
         if np.abs(t - best_threshold) < np.abs(t - best_approximate_threshold):
             best_approximate_threshold = t
 
-    return average_precision, f1, pr_at_thresholds, best_approximate_threshold
-
+    return average_precision, f1, f1_fixed, pr_at_thresholds, best_approximate_threshold
 
 
 def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4):
+    retrieval_metrics = []
     tps = 0
     fps = 0
     fns = 0
-    retrieval_metrics = []
     num_predicted = 0
     num_labeled = 0
     num_matched = 0
 
     sum_average_precision = 0.0
     number_of_documents = 0
+
+    y_labels = []
+    y_preds = []
 
     for types in combinations(used_entities, n):
         for doc in gold_data:
@@ -160,11 +170,6 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                     if x[2] == 1
                 ]))
             else:
-                relations_no_trim = list(set([
-                    tuple([mapping.get(v, v) for v in x[0]])
-                    for x in predicted_data["predicted_relations"]
-                ]))
-
                 relations = list(set([
                     tuple([mapping.get(v, v) for v in x[0]])
                     for x in predicted_data["predicted_relations"]
@@ -177,6 +182,45 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
             gold_relations = [tuple((t, x[t]) for t in types) for x in doc['n_ary_relations']]
             gold_relations = set([x for x in gold_relations if has_all_mentions(doc, x)])
 
+            relations_seen = set()
+            relations_with_scores = []
+            for relation_tuple in predicted_data["predicted_relations"]:
+                relation_remapped = tuple([mapping.get(v, v) for v in relation_tuple[0]])
+                relation_remapped = dict(zip(used_entities, relation_remapped))
+                relation_remapped = tuple((t, relation_remapped[t]) for t in types)
+
+                relation_score = relation_tuple[1]
+                relation_pred = relation_tuple[2]
+                if relation_remapped in relations_seen:
+                    continue
+                relations_seen.add(relation_remapped)
+                relations_with_scores.append((relation_remapped, relation_score, relation_pred))
+
+            relations_with_scores = sorted(relations_with_scores, key=lambda x: x[1], reverse=True)
+            relations_sorted = [x[0] for x in relations_with_scores]
+
+            y_preds_doc  = []
+            y_labels_doc = []
+            for relation_tuple in relations_with_scores:
+                pred = relation_tuple[1] >= thresh if thresh is not None else relation_tuple[2] == 1
+                label = relation_tuple[0] in gold_relations
+                y_preds_doc.append(pred)
+                y_labels_doc.append(label)
+
+
+            if len(gold_relations) > 0:
+                average_precision = 0.0
+                prev_recall = 0.0
+                for k in range(1, len(relations_sorted) + 1):
+                    relations_up_to_k = set(relations_sorted[:k])
+                    matched_up_to_k = relations_up_to_k & gold_relations
+                    precision = len(matched_up_to_k) / len(relations_up_to_k)
+                    recall = len(matched_up_to_k) / len(gold_relations)
+                    assert recall >= prev_recall
+
+                    average_precision += precision * (recall - prev_recall)
+                    prev_recall = recall
+
             try:
                 matched = relations & gold_relations
             except:
@@ -188,14 +232,14 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
             }
             metrics["f1"] = 2 * metrics["p"] * metrics["r"] / (metrics["p"] + metrics["r"] + 1e-7)
 
-            #if len(relations) < len(relations_no_trim):
-            #    breakpoint()
 
             if len(gold_relations) > 0:
                 retrieval_metrics.append(metrics)
+
                 tps += len(matched)
                 fps += len(relations) - len(matched)
                 fns += len(gold_relations) - len(matched)
+
                 num_predicted += len(relations)
                 num_labeled += len(gold_relations)
                 num_matched += len(matched)
@@ -203,26 +247,36 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                 sum_average_precision += average_precision
                 number_of_documents += 1
 
+                # The above predictions and labels were only covering relations that we did predict. We also need to count
+                # relations that were labeled true, but we did not predict (equivalently, we predicted with score 0.0).
+                for relation_tuple in gold_relations.difference(relations_seen):
+                    y_labels_doc.append(True)
+
+                    # y_preds_doc.append(predicted_score >= thresh)
+                    y_preds_doc.append(False)
+
+                y_labels.extend(y_labels_doc)
+                y_preds.extend(y_preds_doc)
+
 
     metric_summary = pd.DataFrame(retrieval_metrics).describe().loc['mean'][['p', 'r', 'f1']]
 
-    try:
-        classification_precision = float(tps) / (tps + fps + 1e-7)
-    except:
-        breakpoint()
-    classification_recall = float(tps) / (tps + fns + 1e-7)
-    if classification_precision == 0.0 and classification_recall == 0.0:
-        # Threshold is too high.
-        f1 = 0.0
-    else:
-        f1 = 2 * (classification_precision * classification_recall) / (classification_precision + classification_recall)
 
+    f1 = f1_score(y_labels, y_preds)
+    classification_precision = precision_score(y_labels, y_preds)
+    classification_recall = recall_score(y_labels, y_preds)
+
+    classification_precision = precision_score(y_labels, y_preds)
+    classification_recall = recall_score(y_labels, y_preds)
     classification_metrics = {
                                 "f1": f1,
                                 "p": classification_precision,
                                 "r": classification_recall
                             }
-    return metric_summary, classification_metrics, num_predicted, num_labeled, num_matched
+
+    mean_average_precision = sum_average_precision / number_of_documents
+
+    return metric_summary, classification_metrics, mean_average_precision, num_predicted, num_labeled, num_matched
 
 
 def prepare_data(gold_file, ner_file, clusters_file, relations_file):
@@ -305,7 +359,7 @@ def draw_pr_curve_against_threshold(results_dict, average_precision, best_thresh
     rounded_best_p = round(results_dict[best_thresh]['f1'], 4)
     rounded_thresh = round(best_thresh, 3)
     ax.set_title(f'Precision-Recall ({file_suffix}) - AUC={rounded_ap}\nAt marked threshold {rounded_thresh}, F1 is {rounded_best_p}')
-    fname = f"/tmp/pr_curve_{file_suffix}.png"
+    fname = f"/tmp/pr_curve_{file_suffix}_w_thresholds.png"
     fig.savefig(fname)
     print(f"Wrote PR curve to {fname}")
 
@@ -354,7 +408,7 @@ def main(args):
         n = 2 if args.choose_with_2_ary else 4
         threshold_values = []
         for candidate_thresh in tqdm(construct_valid_thresholds()):
-            retrieval_metrics, classification_metrics, _, _, _ = compute_relations_metrics(
+            retrieval_metrics, classification_metrics, _, _, _, _ = compute_relations_metrics(
                                                     dev_gold_data,
                                                     dev_predicted_ner,
                                                     dev_predicted_salient_clusters,
@@ -382,7 +436,7 @@ def main(args):
     for n in [2, 4]:
         thresh_string = str(thresh) if thresh is not None else "<fixed>"
         print(f"At threshold {thresh_string}:")
-        retrieval_metrics, classification_metrics, _, _, _ = compute_relations_metrics(gold_data,
+        retrieval_metrics, classification_metrics, mean_average_precision, _, _, _ = compute_relations_metrics(gold_data,
                                                 predicted_ner,
                                                 predicted_salient_clusters,
                                                 predicted_relations,
@@ -391,6 +445,7 @@ def main(args):
                                                 thresh=thresh)
         print(f"Relation Metrics n={n}")
         print(retrieval_metrics)
+        print(f"Retrieval MAP (mean average precision): {mean_average_precision}")
 
         classification_precision = classification_metrics['p']
         classification_recall = classification_metrics['r']
@@ -401,7 +456,7 @@ def main(args):
 
 
         print("\nComputing AUC using sklearn built-in functions")
-        average_precision, f1, pr_at_thresholds, closest_thresh_to_best = compute_weighted_auc(
+        average_precision, f1, f1_fixed, pr_at_thresholds, closest_thresh_to_best = compute_weighted_auc(
                                         gold_data,
                                         predicted_ner,
                                         predicted_relations,
@@ -413,8 +468,9 @@ def main(args):
         except:
             breakpoint()
 
-        print(f"Average precision across all thresholds: {average_precision}")
-        print(f"Classification F1 (sklearn): {f1}\n\n")
+        print(f"Average precision across all thresholds (sklearn): {average_precision}")
+        print(f"Classification F1 at real-best threshold (sklearn): {f1}\n\n")
+        print(f"Classification F1 at model-chosen threshold (sklearn): {f1_fixed}\n\n")
 
         classification_precisions = []
         retrieval_precisions = []
@@ -422,7 +478,7 @@ def main(args):
         threshold_values = {}
         datasize_values = {}
         for candidate_thresh in tqdm(construct_valid_thresholds()):
-            retrieval_metrics, classification_metrics, num_predicted, num_labeled, num_matched = compute_relations_metrics(gold_data,
+            retrieval_metrics, classification_metrics, _, num_predicted, num_labeled, num_matched = compute_relations_metrics(gold_data,
                                         predicted_ner,
                                         predicted_salient_clusters,
                                         predicted_relations,
@@ -451,10 +507,8 @@ def main(args):
         average_classification_precision = np.mean(classification_precisions)
         print(f"Average Classification Precision: {average_classification_precision}")
 
-        #draw_pr_curve(threshold_values, average_classification_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
+        draw_pr_curve(threshold_values, average_classification_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
         draw_pr_curve_against_threshold(threshold_values, average_retrieval_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
-
-        print("\n\n")
 
 if __name__ == "__main__":
     args = parser.parse_args()
