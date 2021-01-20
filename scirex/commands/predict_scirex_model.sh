@@ -1,8 +1,8 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export test_output_folder=test_outputs/
+export test_output_folder=test_outputs_from_our_paper/
 
 export dev_file=scirex_dataset/release_data/dev.jsonl
-export dev_output_folder=dev_outputs/
+export dev_output_folder=dev_outputs_from_our_paper/
 
 echo "Predicting NER"
 python scirex/predictors/predict_ner.py \
