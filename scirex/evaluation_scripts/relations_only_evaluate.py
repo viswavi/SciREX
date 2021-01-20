@@ -118,13 +118,17 @@ def compute_weighted_auc(gold_data,
                 y_preds_fixed.append(False)
 
 
-    average_precision = average_precision_score(y_labels, pred_scores)
+    average_precision = average_precision_score(y_labels, pred_scores, average='macro')
 
-    f1 = f1_score(y_labels, y_preds)
-    classification_precision = precision_score(y_labels, y_preds)
-    classification_recall = recall_score(y_labels, y_preds)
+    f1 = f1_score(y_labels, y_preds, average='macro')
+    classification_precision = precision_score(y_labels, y_preds, average='macro')
+    classification_recall = recall_score(y_labels, y_preds, average='macro')
+    print(f"Best threshold values:\np: {classification_precision}\tr: {classification_recall}\tf1: {f1}")
 
-    f1_fixed = f1_score(y_labels, y_preds_fixed)
+    classification_precision_fixed = precision_score(y_labels, y_preds_fixed, average='macro')
+    classification_recall_fixed = recall_score(y_labels, y_preds_fixed, average='macro')
+    f1_fixed = f1_score(y_labels, y_preds_fixed, average='macro')
+    print(f"Fixed threshold values:\np: {classification_precision_fixed}\tr: {classification_recall_fixed}\tf1: {f1_fixed}")
 
     precision, recall, thresholds = precision_recall_curve(y_labels, pred_scores)
     
@@ -143,11 +147,8 @@ def compute_weighted_auc(gold_data,
     return average_precision, f1, f1_fixed, pr_at_thresholds, best_approximate_threshold
 
 
-def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4):
+def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4, average='binary'):
     retrieval_metrics = []
-    tps = 0
-    fps = 0
-    fns = 0
     num_predicted = 0
     num_labeled = 0
     num_matched = 0
@@ -236,10 +237,6 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
             if len(gold_relations) > 0:
                 retrieval_metrics.append(metrics)
 
-                tps += len(matched)
-                fps += len(relations) - len(matched)
-                fns += len(gold_relations) - len(matched)
-
                 num_predicted += len(relations)
                 num_labeled += len(gold_relations)
                 num_matched += len(matched)
@@ -251,8 +248,6 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                 # relations that were labeled true, but we did not predict (equivalently, we predicted with score 0.0).
                 for relation_tuple in gold_relations.difference(relations_seen):
                     y_labels_doc.append(True)
-
-                    # y_preds_doc.append(predicted_score >= thresh)
                     y_preds_doc.append(False)
 
                 y_labels.extend(y_labels_doc)
@@ -261,21 +256,15 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
 
     metric_summary = pd.DataFrame(retrieval_metrics).describe().loc['mean'][['p', 'r', 'f1']]
 
-
-    f1 = f1_score(y_labels, y_preds)
-    classification_precision = precision_score(y_labels, y_preds)
-    classification_recall = recall_score(y_labels, y_preds)
-
-    classification_precision = precision_score(y_labels, y_preds)
-    classification_recall = recall_score(y_labels, y_preds)
+    f1 = f1_score(y_labels, y_preds, average=average)
+    classification_precision = precision_score(y_labels, y_preds, average=average)
+    classification_recall = recall_score(y_labels, y_preds, average=average)
     classification_metrics = {
                                 "f1": f1,
                                 "p": classification_precision,
                                 "r": classification_recall
                             }
-
     mean_average_precision = sum_average_precision / number_of_documents
-
     return metric_summary, classification_metrics, mean_average_precision, num_predicted, num_labeled, num_matched
 
 
@@ -311,7 +300,7 @@ def draw_pr_curve(results_dict, average_precision, best_thresh, file_suffix="scr
     fig = plt.figure()
     ax = fig.add_subplot(111)
     lines = ax.plot(recalls, precisions, lw=2, color='green')
-    lines = ax.plot([results_dict[best_thresh]['recall']], [results_dict[best_thresh]['precision']], marker='o', color='green', markersize=12, label="Best Operating Point")
+    lines = ax.plot([results_dict[best_thresh]['recall']], [results_dict[best_thresh]['precision']], marker='o', color='green', markersize=12, label="Best Operating Point (from dev set)")
     # lines = ax.plot(recalls, thresholds, color='blue', label="Threshold/Recall Curve")
 
     ax.set_xlabel('Recall')
@@ -324,7 +313,7 @@ def draw_pr_curve(results_dict, average_precision, best_thresh, file_suffix="scr
     rounded_ap = round(average_precision, 4)
     rounded_best_p = round(results_dict[best_thresh]['f1'], 4)
     rounded_thresh = round(best_thresh, 3)
-    ax.set_title(f'Precision-Recall ({file_suffix}) - AUC={rounded_ap}\nAt marked threshold {rounded_thresh}, F1 is {rounded_best_p}')
+    ax.set_title(f'Precision-Recall ({file_suffix}) - Macro-AP={rounded_ap}\nAt marked threshold {rounded_thresh}, Macro-F1 is {rounded_best_p}')
     fname = f"/tmp/pr_curve_{file_suffix}.png"
     fig.savefig(fname)
     print(f"Wrote PR curve to {fname}")
@@ -358,7 +347,7 @@ def draw_pr_curve_against_threshold(results_dict, average_precision, best_thresh
     rounded_ap = round(average_precision, 4)
     rounded_best_p = round(results_dict[best_thresh]['f1'], 4)
     rounded_thresh = round(best_thresh, 3)
-    ax.set_title(f'Precision-Recall ({file_suffix}) - AUC={rounded_ap}\nAt marked threshold {rounded_thresh}, F1 is {rounded_best_p}')
+    ax.set_title(f'Precision-Recall ({file_suffix}) - Macro-AP={rounded_ap}\nAt marked threshold {rounded_thresh}, Macro-F1 is {rounded_best_p}')
     fname = f"/tmp/pr_curve_{file_suffix}_w_thresholds.png"
     fig.savefig(fname)
     print(f"Wrote PR curve to {fname}")
@@ -415,7 +404,8 @@ def main(args):
                                                     dev_predicted_relations,
                                                     dev_predicted_cluster_to_gold_cluster_map,
                                                     thresh=candidate_thresh,
-                                                    n=n)
+                                                    n=n,
+                                                    average='binary')
             if retrieval_metrics is None and classification_metrics is None:
                 continue
             f1 = retrieval_metrics['f1'] if args.choose_with_retrieval_metrics else classification_metrics['f1']
@@ -442,7 +432,8 @@ def main(args):
                                                 predicted_relations,
                                                 predicted_cluster_to_gold_cluster_map,
                                                 n=n,
-                                                thresh=thresh)
+                                                thresh=thresh,
+                                                average='macro')
         print(f"Relation Metrics n={n}")
         print(retrieval_metrics)
         print(f"Retrieval MAP (mean average precision): {mean_average_precision}")
@@ -464,12 +455,11 @@ def main(args):
                                         best_threshold,
                                         n=n)
         try:
-            draw_pr_curve(pr_at_thresholds, average_precision, closest_thresh_to_best, file_suffix=f"{args.file_suffix}_sklearn_n_{n}")
+            draw_pr_curve(pr_at_thresholds, average_precision, closest_thresh_to_best, file_suffix=f"{args.file_suffix}_s")
         except:
             breakpoint()
 
         print(f"Average precision across all thresholds (sklearn): {average_precision}")
-        print(f"Classification F1 at real-best threshold (sklearn): {f1}\n\n")
         print(f"Classification F1 at model-chosen threshold (sklearn): {f1_fixed}\n\n")
 
         classification_precisions = []
@@ -484,15 +474,16 @@ def main(args):
                                         predicted_relations,
                                         predicted_cluster_to_gold_cluster_map,
                                         n=n,
-                                        thresh=candidate_thresh)
+                                        thresh=candidate_thresh,
+                                        average='macro')
             if retrieval_metrics is None and classification_metrics is None:
                 continue
             f1 = retrieval_metrics['f1'] if args.choose_with_retrieval_metrics else classification_metrics['f1']
 
             prf1 = {}
-            prf1["f1"] = retrieval_metrics['f1']
-            prf1["precision"] = retrieval_metrics['p']
-            prf1["recall"] = retrieval_metrics['r']
+            prf1["f1"] = classification_metrics['f1']
+            prf1["precision"] = classification_metrics['p']
+            prf1["recall"] = classification_metrics['r']
             prf1["num_positive"] = num_predicted
 
 
@@ -502,13 +493,8 @@ def main(args):
             retrieval_precisions.append(retrieval_metrics['p'])
             classification_precisions.append(classification_metrics['p'])
 
-        average_retrieval_precision = np.mean(retrieval_precisions)
-        print(f"Average Retrieval Precision: {average_retrieval_precision}")
-        average_classification_precision = np.mean(classification_precisions)
-        print(f"Average Classification Precision: {average_classification_precision}")
-
-        draw_pr_curve(threshold_values, average_classification_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
-        draw_pr_curve_against_threshold(threshold_values, average_retrieval_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
+        draw_pr_curve(threshold_values, average_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
+        draw_pr_curve_against_threshold(threshold_values, average_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
 
 if __name__ == "__main__":
     args = parser.parse_args()
