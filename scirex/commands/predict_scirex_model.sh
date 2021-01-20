@@ -1,6 +1,9 @@
 export test_file=scirex_dataset/release_data/test.jsonl
 export test_output_folder=test_outputs/
 
+export dev_file=scirex_dataset/release_data/dev.jsonl
+export dev_output_folder=dev_outputs/
+
 echo "Predicting NER"
 python scirex/predictors/predict_ner.py \
 $scirex_archive \
@@ -69,7 +72,12 @@ python scirex/evaluation_scripts/scirex_relation_evaluate.py \
 --gold-file $test_file \
 --ner-file $test_output_folder/ner_predictions.jsonl \
 --clusters-file $test_output_folder/salient_clusters_predictions.jsonl \
---relations-file $test_output_folder/relations_predictions.jsonl
+--relations-file $test_output_folder/relations_predictions.jsonl \
+--dev-gold-file $dev_file \
+--dev-ner-file $dev_output_folder/ner_predictions.jsonl \
+--dev-clusters-file $dev_output_folder/salient_clusters_predictions.jsonl \
+--dev-relations-file $dev_output_folder/relations_predictions.jsonl \
+--choose-dev-thresholds
 
 
 echo "Evaluating on all predicted steps with filtering using gold salient clusters"
@@ -77,4 +85,9 @@ python scirex/evaluation_scripts/scirex_relation_evaluate.py \
 --gold-file $test_file \
 --ner-file $test_output_folder/ner_predictions.jsonl \
 --clusters-file $test_output_folder/salient_clusters_predictions_using_gold.jsonl \
---relations-file $test_output_folder/relations_predictions_gold_salient_clusters.jsonl
+--relations-file $test_output_folder/relations_predictions_gold_salient_clusters.jsonl \
+--dev-gold-file $dev_file \
+--dev-ner-file $dev_output_folder/ner_predictions.jsonl \
+--dev-clusters-file $dev_output_folder/salient_clusters_predictions_using_gold.jsonl \
+--dev-relations-file $dev_output_folder/relations_predictions_gold_salient_clusters.jsonl \
+--choose-dev-thresholds
