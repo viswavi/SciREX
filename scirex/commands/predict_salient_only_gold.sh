@@ -4,7 +4,7 @@ mkdir -p $test_output_folder
 
 echo "Predicting Salient Mentions"
 python scirex/predictors/predict_salient_mentions.py \
-$scirex_archive \
+$salient_only_archive \
 scirex_dataset/release_data/test.jsonl \
 $test_output_folder/salient_mentions_predictions.jsonl \
 $cuda_device
