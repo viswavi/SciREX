@@ -19,7 +19,7 @@ export dev_output_folder=test_outputs_relations_dev/
 # $test_output_folder/relations_predictions_gold_salient_clusters.jsonl \
 # $cuda_device
 
-echo "Predicting Relations on gold clusters"
+echo "Predicting Dev Relations on gold clusters"
 python scirex/predictors/predict_n_ary_relations.py \
 $relations_only_archive \
 $dev_file \
@@ -27,7 +27,7 @@ $dev_file \
 $test_output_folder/relations_predictions_gold_clusters.jsonl \
 $cuda_device
 
-echo "Predicting Relations on gold clusters"
+echo "Predicting Test Relations on gold clusters"
 python scirex/predictors/predict_n_ary_relations.py \
 $relations_only_archive \
 $test_file \
