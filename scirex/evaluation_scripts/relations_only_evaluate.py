@@ -16,6 +16,7 @@ from scirex_utilities.json_utilities import load_jsonl
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gold-file")
+parser.add_argument("--ner-file")
 parser.add_argument("--clusters-file")
 parser.add_argument("--relations-file")
 parser.add_argument("--dev-gold-file")
@@ -196,8 +197,8 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                 relations_seen.add(relation_remapped)
                 relations_with_scores.append((relation_remapped, relation_score, relation_pred))
 
-            relations_with_scores = sorted(relations_with_scores, key=lambda x: x[1], reverse=True)
-            relations_sorted = [x[0] for x in relations_with_scores]
+            relations_sorted = sorted(relations_with_scores, key=lambda x: x[1], reverse=True)
+            relations_sorted = [x[0] for x in relations_sorted]
 
             y_preds_doc  = []
             y_labels_doc = []
@@ -252,12 +253,13 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                 y_labels.extend(y_labels_doc)
                 y_preds.extend(y_preds_doc)
 
+    retrieval_metrics_df = pd.DataFrame(retrieval_metrics)
     mean_average_precision = sum_average_precision / number_of_documents
-    return retrieval_metrics, mean_average_precision, y_labels, y_preds, num_predicted, num_labeled, num_matched
+    return retrieval_metrics_df, mean_average_precision, y_labels, y_preds, num_predicted, num_labeled, num_matched
 
 
-def summarize_relation_extraction_metrics(retrieval_metrics_df, classification_y_labels, classification_y_preds, , average='binary'):
-    metric_summary = pd.DataFrame(retrieval_metrics_df).describe().loc['mean'][['p', 'r', 'f1']]
+def summarize_relation_extraction_metrics(retrieval_metrics_df, classification_y_labels, classification_y_preds, average='binary'):
+    retrieval_metric_summary = retrieval_metrics_df.describe().loc['mean'][['p', 'r', 'f1']]
     f1 = f1_score(classification_y_labels, classification_y_preds, average=average)
     classification_precision = precision_score(classification_y_labels, classification_y_preds, average=average)
     classification_recall = recall_score(classification_y_labels, classification_y_preds, average=average)
@@ -266,7 +268,7 @@ def summarize_relation_extraction_metrics(retrieval_metrics_df, classification_y
                                 "p": classification_precision,
                                 "r": classification_recall
                             }
-    return metric_summary, classification_metrics
+    return retrieval_metric_summary, classification_metrics
 
 
 def prepare_data(gold_file, ner_file, clusters_file, relations_file):
@@ -405,8 +407,7 @@ def main(args):
                                                     dev_predicted_relations,
                                                     dev_predicted_cluster_to_gold_cluster_map,
                                                     thresh=candidate_thresh,
-                                                    n=n,
-                                                    average='binary')
+                                                    n=n)
             retrieval_metrics, classification_metrics = summarize_relation_extraction_metrics(retrieval_metrics_df,
                                                                                               y_labels,
                                                                                               y_preds,
@@ -456,6 +457,8 @@ def main(args):
 
 
         print("\nComputing AUC using sklearn built-in functions")
+        if not args.choose_dev_thresholds:
+            best_threshold = 0.5
         average_precision, f1, f1_fixed, pr_at_thresholds, closest_thresh_to_best = compute_weighted_auc(
                                         gold_data,
                                         predicted_ner,
@@ -483,12 +486,11 @@ def main(args):
                                         predicted_relations,
                                         predicted_cluster_to_gold_cluster_map,
                                         n=n,
-                                        thresh=candidate_thresh,
-                                        average='macro')
+                                        thresh=candidate_thresh)
             retrieval_metrics, classification_metrics = summarize_relation_extraction_metrics(retrieval_metrics_df,
                                                                                                 y_labels,
                                                                                                 y_preds,
-                                                                                                average='binary')
+                                                                                                average='macro')
             if retrieval_metrics is None and classification_metrics is None:
                 continue
             f1 = retrieval_metrics['f1'] if args.choose_with_retrieval_metrics else classification_metrics['f1']
