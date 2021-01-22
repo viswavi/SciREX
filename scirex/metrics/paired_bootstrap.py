@@ -59,7 +59,7 @@ def eval_measure(gold, sys, eval_type='acc'):
     # make sure score is 0-based instead of 100-based
     return sacrebleu.corpus_bleu(sys, [gold]).score / 100.
   elif eval_type == EVAL_TYPE_F1:
-    return f1_score(gold, sys)
+    return f1_score(gold, sys, average="macro")
   elif eval_type == EVAL_TYPE_AVG:
     return np.mean(sys)
   else:
@@ -67,7 +67,8 @@ def eval_measure(gold, sys, eval_type='acc'):
 
 def eval_with_paired_bootstrap(gold, sys1, sys2,
                                num_samples=10000, sample_ratio=0.5,
-                               eval_type='acc'):
+                               eval_type='acc',
+                               return_results=False):
   ''' Evaluate with paired boostrap
   This compares two systems, performing a significance tests with
   paired bootstrap resampling to compare the accuracy of the two systems.
@@ -127,3 +128,9 @@ def eval_with_paired_bootstrap(gold, sys1, sys2,
           (np.mean(sys1_scores), np.median(sys1_scores), sys1_scores[int(num_samples * 0.025)], sys1_scores[int(num_samples * 0.975)]))
   print('sys2 mean=%.3f, median=%.3f, 95%% confidence interval=[%.3f, %.3f]' %
           (np.mean(sys2_scores), np.median(sys2_scores), sys2_scores[int(num_samples * 0.025)], sys2_scores[int(num_samples * 0.975)]))
+  if return_results:
+    sys1_summary = (np.mean(sys1_scores), (sys1_scores[int(num_samples * 0.025)], sys1_scores[int(num_samples * 0.975)]))
+    sys2_summary = (np.mean(sys2_scores), (sys2_scores[int(num_samples * 0.025)], sys2_scores[int(num_samples * 0.975)]))
+    p_value_lose = 1-wins[0]
+    p_value_win = 1-wins[1]
+    return sys1_summary, sys2_summary, p_value_lose, p_value_win
