@@ -3,6 +3,7 @@ import gzip
 import json
 import jsonlines
 import os
+import numpy as np
 import pickle
 import random
 import requests
@@ -510,6 +511,7 @@ def get_s2orc_scirex_id_mapping():
     s2orc_to_scirex_mappings = {}
     for scirex, s2orc in scirex_s2orc_metadata.items():
         s2orc_to_scirex_mappings[s2orc["paper_id"]] = scirex
+    return s2orc_to_scirex_mappings
 
 def get_scirex_to_s2orc_mappings():
     scirex_s2orc_metadata = get_scirex_s2_metadata()
@@ -541,6 +543,39 @@ def get_citation_graph(radius, remap_to_scirex_id = False):
             in_edges_scirex_keys[k] = v
 
     return out_edges_scirex_keys, in_edges_scirex_keys
+
+
+def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True):
+    in_graph, out_graph = get_citation_graph(1, remap_to_scirex_id=remap_to_scirex_id)
+    scirex_paper_ids = list(get_scirex_docids())
+    degrees = {}
+    for doc_id in scirex_paper_ids:
+        degrees[doc_id] = 0
+        degrees[doc_id] += len(in_graph.get(doc_id, []))
+        degrees[doc_id] += len(out_graph.get(doc_id, []))
+    return degrees
+
+
+
+def bucket_documents_by_graph_degree(test_set, num_buckets=6, remap_to_scirex_id = True):
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id)
+    test_degrees = {}
+    for doc in test_set:
+        test_degrees[doc] = all_degrees.get(doc, 0)
+
+    docs_sorted_by_degree = list(sorted(test_degrees.items(), key=lambda x:x[1]))
+    bucket_size = np.ceil(float(len(docs_sorted_by_degree))/num_buckets)
+    buckets = [((0,0), [])]
+    for doc, degree in docs_sorted_by_degree:
+        if len(buckets[-1][1]) >= bucket_size:
+            buckets.append(((buckets[-1][0][1], 0), []))
+
+        ((start, end), docs) = buckets[-1]
+        docs.append(doc)
+        if degree > end:
+            end = degree
+        buckets[-1] = ((start, end), docs)
+    return buckets
 
 
 def get_scirex_neighbor_texts():
