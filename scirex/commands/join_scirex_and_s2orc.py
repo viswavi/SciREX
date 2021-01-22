@@ -545,20 +545,24 @@ def get_citation_graph(radius, remap_to_scirex_id = False):
     return out_edges_scirex_keys, in_edges_scirex_keys
 
 
-def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True):
+def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True, degree_direction="both"):
+    assert degree_direction in ["both", "out", "in"]
+
     in_graph, out_graph = get_citation_graph(1, remap_to_scirex_id=remap_to_scirex_id)
     scirex_paper_ids = list(get_scirex_docids())
     degrees = {}
     for doc_id in scirex_paper_ids:
         degrees[doc_id] = 0
-        degrees[doc_id] += len(in_graph.get(doc_id, []))
-        degrees[doc_id] += len(out_graph.get(doc_id, []))
+        if degree_direction == "both" or degree_direction == "in":
+            degrees[doc_id] += len(in_graph.get(doc_id, []))
+        if degree_direction == "both" or degree_direction == "out":
+            degrees[doc_id] += len(out_graph.get(doc_id, []))
     return degrees
 
 
 
-def bucket_documents_by_graph_degree(test_set, num_buckets=6, remap_to_scirex_id = True):
-    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id)
+def bucket_documents_by_graph_degree(test_set, num_buckets=6, degree_direction="both", remap_to_scirex_id = True):
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction="both")
     test_degrees = {}
     for doc in test_set:
         test_degrees[doc] = all_degrees.get(doc, 0)
