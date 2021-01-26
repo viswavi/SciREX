@@ -99,23 +99,25 @@ class ScirexModel(Model):
                     sum_mask = sum(original_masks[i])
                     ner_output["gold_tags"].insert(i, [0] * sum_mask)
                     ner_output["tags"].insert(i, [0] * sum_mask)
-                output_dict["ner"] = ner_output
-                loss += torch.tensor(0.0, device=device, requires_grad=True)
+                ner_output["loss"] = torch.tensor(0.0, device=device, requires_grad=True)
+
             else: # Not all citances.
                 if False in body_text:
                     # This batch contains a mix of body sentences and citances
                     original_masks = output_embedding["mask"]
+                    output_embedding_2 = {}
                     for m in output_embedding:
-                        output_embedding[m] = output_embedding[m][body_text]
+                        output_embedding_2[m] = output_embedding[m][body_text].clone()
                     ner_type_labels = ner_type_labels[body_text]
-                    ner_output = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
+                    ner_output = self.ner_forward(output_embedding=output_embedding_2, ner_type_labels=ner_type_labels, metadata=metadata)
                     for i, body in enumerate(body_text):
                         if not body:
                             sum_mask = sum(original_masks[i])
                             ner_output["gold_tags"].insert(i, [0] * sum_mask)
                             ner_output["tags"].insert(i, [0] * sum_mask)
-                output_dict["ner"] = ner_output
-                loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]
+
+            output_dict["ner"] = ner_output
+            loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]
 
         output_span_embedding = self.span_embeddings_forward(
             output_embedding, spans, span_type_labels, span_features, metadata
