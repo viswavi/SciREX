@@ -68,11 +68,7 @@ function(p) {
   test_data_path: std.extVar("TEST_PATH"),
 
   model: {
-    type: "salient_classification_only",
-    use_citation_graph_embeddings: p.use_citation_graph_embeddings,
-    citation_embedding_file: p.citation_embedding_file,
-    doc_to_idx_mapping_file: p.doc_to_idx_mapping_file,
-    finetune_embedding: p.finetune_embedding,
+    type: "relations_only",
     text_field_embedder: text_field_embedder,
     loss_weights: p.loss_weights,
     lexical_dropout: 0.2,
@@ -82,11 +78,9 @@ function(p) {
       coref: {
         antecedent_feedforward: make_feedforward(featured_embedding_dim),
       },
-      saliency_classifier: {
-        mention_feedforward: make_feedforward(featured_embedding_dim),
-        label_namespace: "span_saliency_labels",
-        n_features: n_features,
-        graph_embedding_dim: graph_embedding_dim,
+      n_ary_relation: {
+        antecedent_feedforward: make_feedforward(4*featured_embedding_dim),
+	      relation_cardinality: p.relation_cardinality
       },
     }
   },
