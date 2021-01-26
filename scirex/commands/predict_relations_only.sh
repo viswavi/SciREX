@@ -1,5 +1,5 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export test_output_folder=test_outputs_relations/
+# export test_output_folder=test_outputs_relations/
 
 # echo "Predicting Relations End-to-End"
 # python scirex/predictors/predict_n_ary_relations.py \
@@ -17,12 +17,22 @@ export test_output_folder=test_outputs_relations/
 # $test_output_folder/relations_predictions_gold_salient_clusters.jsonl \
 # $cuda_device
 
+echo '''
+echo "Predicting Relations on gold clusters"
+python scirex/predictors/predict_n_ary_relations.py \
+$relations_only_archive \
+$dev_file \
+$dev_file \
+$test_output_folder/relations_predictions_gold_clusters.jsonl \
+$cuda_device
+'''
+
 echo "Predicting Relations on gold clusters"
 python scirex/predictors/predict_n_ary_relations.py \
 $relations_only_archive \
 $test_file \
 $test_file \
-$test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion.jsonl \
+$test_output_folder/relations_predictions_gold_clusters.jsonl \
 $cuda_device
 
 echo "Evaluating on all Predicted steps "
@@ -30,12 +40,5 @@ python scirex/evaluation_scripts/relations_only_evaluate.py \
 --gold-file $test_file \
 --ner-file $test_file \
 --clusters-file $test_file \
---relations-file $test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion.jsonl
+--relations-file $test_output_folder/relations_predictions_gold_clusters.jsonl
 
-
-echo "Evaluating on all Predicted steps "
-python scirex/evaluation_scripts/relations_only_compute_pr_curve.py \
---gold-file $test_file \
---ner-file $test_file \
---clusters-file $test_file \
---relations-file $test_output_folder/relations_predictions_gold_clusters_with_graph_embeddings_early_fusion.jsonl

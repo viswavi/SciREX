@@ -1,5 +1,5 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export test_output_folder=test_outputs/
+export test_output_folder=test_outputs_saliency/
 
 # These scripts require you've already generated files for NER and cluster predictions
 if [ ! -f $test_output_folder/cluster_predictions.jsonl ]; then
