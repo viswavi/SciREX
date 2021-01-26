@@ -90,7 +90,8 @@ class ScirexModel(Model):
 
         if self._loss_weights["ner"] > 0.0:
             ner_output = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
-            loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]	            body_text = [len([token for token in x["paragraph"] if "CITE" in token]) == 0 for x in ner_output["metadata"]]
+            loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]
+            body_text = [len([token for token in x["paragraph"] if "CITE" in token]) == 0 for x in ner_output["metadata"]]
             if True not in body_text:
                 # All citances; just skip this section entirely
                 loss += torch.tensor(0.0, device=device, requires_grad=True)
