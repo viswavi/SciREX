@@ -445,7 +445,7 @@ def main(args):
         print(f"Classification Recall: {classification_recall}")
         print(f"Classification F1: {f1}\n")
 
-
+    """
         print("\nComputing AUC using sklearn built-in functions")
         average_precision, f1, f1_fixed, pr_at_thresholds, closest_thresh_to_best = compute_weighted_auc(
                                         gold_data,
@@ -495,6 +495,7 @@ def main(args):
 
         draw_pr_curve(threshold_values, average_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
         draw_pr_curve_against_threshold(threshold_values, average_precision, best_threshold, file_suffix=f"{args.file_suffix}_n_{n}")
+    """
 
 if __name__ == "__main__":
     args = parser.parse_args()
