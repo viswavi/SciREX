@@ -86,10 +86,29 @@ class ScirexModel(Model):
         loss = 0.0
 
         output_embedding = self.embedding_forward(text)
+        device = output_embedding["text"].device
 
         if self._loss_weights["ner"] > 0.0:
-            output_dict["ner"] = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
-            loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]
+            ner_output = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
+            loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]	            body_text = [len([token for token in x["paragraph"] if "CITE" in token]) == 0 for x in ner_output["metadata"]]
+            if True not in body_text:
+                # All citances; just skip this section entirely
+                loss += torch.tensor(0.0, device=device, requires_grad=True)
+            else: # Not all citances.
+                if False in body_text:
+                    # This batch contains a mix of body sentences and citances
+                    original_masks = output_embedding["mask"]
+                    for m in output_embedding:
+                        output_embedding[m] = output_embedding[m][body_text]
+                    ner_type_labels = ner_type_labels[body_text]
+                    ner_output = self.ner_forward(output_embedding=output_embedding, ner_type_labels=ner_type_labels, metadata=metadata)
+                    for i, body in enumerate(body_text):
+                        if not body:
+                            sum_mask = sum(original_masks[i])
+                            ner_output["gold_tags"].insert(i, [0] * sum_mask)
+                            ner_output["tags"].insert(i, [0] * sum_mask)
+                output_dict["ner"] = ner_output
+                loss += self._loss_weights["ner"] * output_dict["ner"]["loss"]
 
         output_span_embedding = self.span_embeddings_forward(
             output_embedding, spans, span_type_labels, span_features, metadata

@@ -62,6 +62,9 @@ function(p) {
     type: 'scirex_full_reader',
     token_indexers: token_indexers,
   },
+  random_seed: std.extVar("random_seed"),
+  numpy_seed: std.extVar("numpy_seed"),
+  pytorch_seed: std.extVar("pytorch_seed"),
   train_data_path: std.extVar("TRAIN_PATH"),
   validation_data_path: std.extVar("DEV_PATH"),
   test_data_path: std.extVar("TEST_PATH"),
@@ -95,11 +98,11 @@ function(p) {
   },
   iterator: {
     type: "ie_batch",
-    batch_size: 50,
+    batch_size: 4,
   },
   validation_iterator: {
     type: "ie_batch",
-    batch_size: 50,
+    batch_size: 4,
   },
   trainer: {
     num_epochs: 20,
