@@ -336,8 +336,4 @@ def initialize_graph_embeddings(graph_embedding_file, finetune_embedding=False):
     embedding = torch.nn.Embedding(num_embeddings = num_embeddings, embedding_dim = embedding_dim)
     embedding.weight.data.copy_(torch.from_numpy(graph_embedding_array))
     embedding.weight.requires_grad = finetune_embedding
-<<<<<<< HEAD
     return embedding
-=======
-    return embedding
->>>>>>> c1711e28aced3509fa7fd5ef8d0f33393d179a93

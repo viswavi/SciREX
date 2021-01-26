@@ -61,7 +61,7 @@ class SpanClassifier(Model):
         metadata: List[Dict[str, Any]] = None,
     ) -> Dict[str, torch.Tensor]:
         # Shape: (Batch_size, Number of spans, H)
-        document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device='cuda')
+        document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=spans.device)
         graph_features = self._document_embedding(document_idxs)
         (batch_size, num_spans, _) = span_embeddings.shape
         graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
