@@ -82,6 +82,12 @@ class NEROnlyModel(Model):
             body_text = [len([token for token in x["paragraph"] if "CITE" in token]) == 0 for x in ner_output["metadata"]]
             if True not in body_text:
                 # All citances; just skip this section entirely
+                for i in range(len(body_text)):
+                    original_masks = output_embedding["mask"]
+                    sum_mask = sum(original_masks[i])
+                    ner_output["gold_tags"].insert(i, [0] * sum_mask)
+                    ner_output["tags"].insert(i, [0] * sum_mask)
+                output_dict["ner"] = ner_output
                 loss += torch.tensor(0.0, device=device, requires_grad=True)
             else: # Not all citances.
                 if False in body_text:
