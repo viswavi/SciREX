@@ -47,6 +47,7 @@ def main():
     gold_data, _, _, _, _ = processed_data_b
 
     for n in [2, 4]:
+        print(f"N={n}")
         retrieval_f1_a_list = []
         retrieval_length = None
         for thresh_a, processed_data_a in zip(thresholds_a, processed_datas_a):
