@@ -150,6 +150,7 @@ def main():
         assert len(gold_mentions) == len(labels_a)
         salient_mention_predictions_a.append(preds_a)
 
+    print("\n")
     salient_mention_predictions_b = []
     for salient_file_b in salient_mentions_files_b:
         predicted_salient_mentions_b = convert_to_dict(load_jsonl(salient_file_b))
@@ -163,7 +164,7 @@ def main():
     sys2_mention_list = list(salient_mention_predictions_b)
     eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_mention_list, sys2_mention_list,
                                num_samples=1000, sample_ratio=0.5,
-                               eval_type='macro-f1')
+                               eval_type='f1')
 
     get_types_of_clusters(convert_to_dict(gold_data), convert_to_dict(gold_data))
 
@@ -210,7 +211,7 @@ def main():
     gold = [None for _ in sys1_cluster_list[0]]
     # Each bootstrap sample draws 50 items.
     eval_with_hierarchical_paired_bootstrap(gold, sys1_cluster_list, sys2_cluster_list,
-                               num_samples=1000, sample_ratio=0.76,
+                               num_samples=5000, sample_ratio=0.5,
                                eval_type='avg')
 
 if __name__ == "__main__":
