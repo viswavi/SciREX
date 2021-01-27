@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import json
+import jsonlines
 import os
 from sys import argv
 from typing import Dict, List, Tuple
@@ -48,6 +49,7 @@ def predict(archive_folder, test_file, output_file, cuda_device):
 
             output_embedding = model.embedding_forward(batch["text"])
             output_ner = model.ner_forward(output_embedding, batch["ner_type_labels"], batch["metadata"])
+            body_text = [len([token for token in x["paragraph"] if "CITE" in token]) == 0 for x in output_ner["metadata"]]
             predicted_ner: List[Dict[Tuple[int, int], str]] = output_ner["decoded_ner"]
 
             metadata = output_ner["metadata"]
@@ -75,7 +77,10 @@ def predict(archive_folder, test_file, output_file, cuda_device):
                 res["para_end"] = para_ends[i]
                 res["words"] = words[i]
                 res["sentence_indices"] = sentence_indices[i]
-                res["prediction"] = [(k[0], k[1], v) for k, v in predicted_ner[i].items()]
+                if body_text[i]:
+                    res["prediction"] = [(k[0], k[1], v) for k, v in predicted_ner[i].items()]
+                else:
+                    res["prediction"] = []
                 documents[doc_ids[i]].append(res)
 
         documents = process_documents(documents)
