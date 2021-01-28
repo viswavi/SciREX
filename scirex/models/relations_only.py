@@ -15,14 +15,13 @@ from overrides import overrides
 
 # Import submodules.
 from scirex.models.relations.entity_relation import RelationExtractor as NAryRelationExtractor
-from scirex.models.ner.ner_crf_tagger import NERTagger
 from scirex.models.span_classifiers.span_classifier import SpanClassifier
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@Model.register("salient_classification_only")
-class SalientOnlyModel(Model):
+@Model.register("relations_only")
+class RelationsOnlyModel(Model):
     def __init__(
         self,
         vocab: Vocabulary,
@@ -31,14 +30,11 @@ class SalientOnlyModel(Model):
         modules: Params,
         loss_weights: Dict[str, int],
         lexical_dropout: float = 0.2,
-        in_edges_tfidf_path: str = None,
-        out_edges_tfidf_path: str = None,
-        undirected_edges_tfidf_path: str = None,
         initializer: InitializerApplicator = InitializerApplicator(),
         regularizer: Optional[RegularizerApplicator] = None,
         display_metrics: List[str] = None,
     ) -> None:
-        super(SalientOnlyModel, self).__init__(vocab, regularizer)
+        super(RelationsOnlyModel, self).__init__(vocab, regularizer)
 
         self._text_field_embedder = text_field_embedder
         self._context_layer = context_layer
@@ -46,17 +42,10 @@ class SalientOnlyModel(Model):
 
         modules = Params(modules)
 
-        in_edges_tfidf_map = json.load(open(in_edges_tfidf_path))
-        out_edges_tfidf_map = json.load(open(out_edges_tfidf_path))
-        undirected_edges_tfidf_map = json.load(open(undirected_edges_tfidf_path))
-
-        self._saliency_classifier = SpanClassifier.from_params(
-            vocab=vocab,
-            params=modules.pop("saliency_classifier"),
-            in_edges_tfidf_map=in_edges_tfidf_map,
-            out_edges_tfidf_map=out_edges_tfidf_map,
-            undirected_edges_tfidf_map=undirected_edges_tfidf_map,
+        self._cluster_n_ary_relation = NAryRelationExtractor.from_params(
+            vocab=vocab, params=modules.pop("n_ary_relation")
         )
+
         self._endpoint_span_extractor = EndpointSpanExtractor(
             context_layer.get_output_dim(), combination="x,y"
         )
@@ -64,12 +53,11 @@ class SalientOnlyModel(Model):
 
         for k in loss_weights:
             loss_weights[k] = float(loss_weights[k])
-
         self._loss_weights = loss_weights
         self._permanent_loss_weights = copy.deepcopy(self._loss_weights)
 
         self._display_metrics = display_metrics
-        self._multi_task_loss_metrics = {k: Average() for k in ["saliency"]}
+        self._multi_task_loss_metrics = {k: Average() for k in ["n_ary_relation"]}
 
         self.training_mode = True
         self.prediction_mode = False
@@ -93,19 +81,18 @@ class SalientOnlyModel(Model):
         loss = 0.0
 
         output_embedding = self.embedding_forward(text)
-
         output_span_embedding = self.span_embeddings_forward(
             output_embedding, spans, span_type_labels, span_features, metadata
         )
-
-        if self._loss_weights["saliency"] > 0.0:
-            output_dict["saliency"] = self.saliency_forward(
-                    output_span_embedding,
-                    metadata,
-                    span_saliency_labels,
-                    span_cluster_labels,
+        if self._loss_weights["n_ary_relation"] > 0.0:
+            output_dict["n_ary_relation"] = self.relation_forward(
+                output_span_embedding,
+                metadata,
+                relation_to_cluster_ids,
+                span_cluster_labels,
+                device=output_embedding['text'].device,
             )
-            loss += self._loss_weights["saliency"] * output_dict["saliency"]["loss"]
+            loss += self._loss_weights["n_ary_relation"] * output_dict["n_ary_relation"]["loss"]
 
         output_dict["loss"] = loss
         for k in self._multi_task_loss_metrics:
@@ -187,15 +174,11 @@ class SalientOnlyModel(Model):
 
         return output_span_embeddings
 
-    def saliency_forward(
-        self,
-        output_span_embedding,
-        metadata,
-        span_saliency_labels,
-        span_cluster_labels,
-        saliency_threshold=None
-    ):
-        output_saliency = {"loss": 0.0}
+    def relation_forward(
+        self, output_span_embedding, metadata, relation_to_cluster_ids, span_cluster_labels, device='cuda'):
+        output_n_ary_relation = {"loss": 0.0}
+
+        empty_batch = True
         if output_span_embedding["valid"]:
             spans, featured_span_embeddings, span_ix, span_mask = (
                 output_span_embedding["spans"],
@@ -204,17 +187,25 @@ class SalientOnlyModel(Model):
                 output_span_embedding["span_mask"],
             )
 
-            output_saliency = self._saliency_classifier(
-                spans=spans,
-                span_embeddings=featured_span_embeddings,
-                span_features=output_span_embedding["span_features"],
-                span_labels=span_saliency_labels,
-                metadata=metadata,
-            )
-        else:
-            output_saliency["loss"] = torch.tensor(0.0, device='cuda', requires_grad=True)
+            if relation_to_cluster_ids is not None or self.prediction_mode:
+                n_salient_clusters = len(metadata[0]["document_metadata"]["cluster_name_to_id"])
+                type_to_cluster_ids = metadata[0]["document_metadata"]["type_to_cluster_ids"]
+                relation_to_cluster_ids = metadata[0]["document_metadata"]["relation_to_cluster_ids"]
+                span_cluster_labels = span_cluster_labels[:, :, :n_salient_clusters]
 
-        return output_saliency
+                output_n_ary_relation = self._cluster_n_ary_relation.compute_representations(
+                    span_embeddings=featured_span_embeddings,
+                    coref_labels=span_cluster_labels,
+                    type_to_cluster_ids=type_to_cluster_ids,
+                    relation_to_cluster_ids=relation_to_cluster_ids,
+                    metadata=metadata,
+                )
+                empty_batch = False
+
+        if empty_batch or isinstance(output_n_ary_relation["loss"], float):
+            output_n_ary_relation["loss"] = torch.tensor(0.0, device=device, requires_grad=True)
+
+        return output_n_ary_relation
 
     def get_span_one_hot_labels(self, label_namespace, span_labels, spans):
         n_labels = self.vocab.get_vocab_size(label_namespace)
@@ -250,11 +241,11 @@ class SalientOnlyModel(Model):
     @overrides
     def decode(self, output_dict: Dict[str, torch.Tensor]):
         res = {}
-        res["saliency"] = self._saliency_classifier.decode(output_dict["saliency"])
+        res["n_ary_relation"] = self._n_ary_relation.decode(output_dict["n_ary_relation"])
 
         return res
 
-    def decode_saliency(self, batch, saliency_threshold):
+    def decode_relations(self, batch):
         output_embedding = self.embedding_forward(text=batch["text"])
         output_span_embedding = self.span_embeddings_forward(
             output_embedding=output_embedding,
@@ -264,38 +255,42 @@ class SalientOnlyModel(Model):
             metadata=batch["metadata"],
         )
 
-        output_saliency = self.saliency_forward(
+        output_n_ary_relation = self.relation_forward(
             output_span_embedding=output_span_embedding,
             metadata=batch["metadata"],
-            span_saliency_labels=batch["span_saliency_labels"],
+            relation_to_cluster_ids=batch.get("relation_to_cluster_ids", None),
             span_cluster_labels=batch["span_cluster_labels"],
-            saliency_threshold=saliency_threshold,
+            device=output_embedding['text'].device,
         )
 
-        return self._saliency_classifier.decode(output_saliency)
+        res = {}
+        res["n_ary_relation"] = self._cluster_n_ary_relation.decode(output_n_ary_relation)
+
+        return res
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         """
         Get all metrics from all modules. For the ones that shouldn't be displayed, prefix their
         keys with an underscore.
         """
-        metrics_saliency = self._saliency_classifier.get_metrics(reset=reset)
+        metrics_n_ary = self._cluster_n_ary_relation.get_metrics(reset=reset)
         metrics_loss = {"loss_" + k: v.get_metric(reset) for k, v in self._multi_task_loss_metrics.items()}
         metrics_loss = {k: (v.item() if hasattr(v, "item") else v) for k, v in metrics_loss.items()}
 
         # Make sure that there aren't any conflicting names.
         metric_names = (
-            list(metrics_saliency.keys())
+            list(metrics_n_ary.keys())
             + list(metrics_loss.keys())
         )
         assert len(set(metric_names)) == len(metric_names)
         all_metrics = dict(
-            list(metrics_saliency.items())
+            list(metrics_n_ary.items())
             + list(metrics_loss.items())
         )
 
         all_metrics["validation_metric"] = (
-            self._loss_weights["saliency"] * nan_to_zero(metrics_saliency.get("span_f1", 0))
+            self._loss_weights["n_ary_relation"]
+            * nan_to_zero(metrics_n_ary.get("n_ary_rel_global_1.f1-score", 0))
         )
 
         self._display_metrics.append("validation_metric")

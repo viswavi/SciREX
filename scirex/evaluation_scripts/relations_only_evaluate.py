@@ -36,21 +36,14 @@ def ner_metrics(gold_data, predicted_data):
     return mapping
 
 
-def clustering_metrics(gold_data, predicted_clusters, span_map):
-    all_metrics = []
+def match_predicted_clusters_with_gold(gold_data, predicted_clusters, span_map):
     mappings = {}
     for doc in gold_data:
         predicted_doc = predicted_clusters[doc["doc_id"]]
-        metrics, mapping = match_predicted_clusters_to_gold(
+        _, mapping = match_predicted_clusters_to_gold(
             predicted_doc["clusters"], doc["coref"], span_map[doc["doc_id"]], doc['words']
         )
         mappings[doc["doc_id"]] = mapping
-        all_metrics.append(metrics)
-
-    all_metrics = pd.DataFrame(all_metrics)
-    print("Salient Clustering Metrics")
-    print(all_metrics.describe().loc['mean'])
-
     return mappings
 
 
@@ -86,7 +79,7 @@ def main(args):
     predicted_span_to_gold_span_map: Dict[str, Dict[tuple, tuple]] = ner_metrics(gold_data, predicted_ner)
     get_types_of_clusters(predicted_ner, predicted_salient_clusters)
     get_types_of_clusters(convert_to_dict(gold_data), convert_to_dict(gold_data))
-    predicted_cluster_to_gold_cluster_map = clustering_metrics(
+    predicted_cluster_to_gold_cluster_map = match_predicted_clusters_with_gold(
         gold_data, predicted_salient_clusters, predicted_span_to_gold_span_map
     )
 

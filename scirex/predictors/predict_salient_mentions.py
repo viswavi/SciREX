@@ -42,7 +42,7 @@ def predict(archive_folder, test_file, output_file, cuda_device):
     dataset_reader.prediction_mode = True
     instances = dataset_reader.read(test_file)
 
-    for instance in instances :
+    for instance in instances:
         batch = Batch([instance])
         batch.index_instances(model.vocab)
 
