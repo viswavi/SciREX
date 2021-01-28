@@ -159,12 +159,13 @@ def main():
         assert len(gold_mentions) == len(preds_b)
         salient_mention_predictions_b.append(preds_b)
 
-    print(f"Paired Bootstrap Comparison of System A and System B on salient mention metric:")
-    sys1_mention_list = list(salient_mention_predictions_a)
-    sys2_mention_list = list(salient_mention_predictions_b)
-    eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_mention_list, sys2_mention_list,
-                               num_samples=1000, sample_ratio=0.5,
-                               eval_type='f1')
+    for metric_type in ["f1", "precision", "recall"]:
+        print(f"Paired Bootstrap Comparison of System A and System B on salient mention metric: {metric_type}")
+        sys1_mention_list = list(salient_mention_predictions_a)
+        sys2_mention_list = list(salient_mention_predictions_b)
+        eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_mention_list, sys2_mention_list,
+                                num_samples=1000, sample_ratio=0.5,
+                                eval_type=metric_type)
 
     get_types_of_clusters(convert_to_dict(gold_data), convert_to_dict(gold_data))
 
@@ -202,17 +203,19 @@ def main():
         all_metrics_b_list.append(all_metrics_b)
         assert preds_len == len(all_metrics_b)
 
-    print(f"Paired Bootstrap Comparison of System A and System B on salient cluster metric:")
-    # The bootstrap script expects a list of gold values, but here the "system" values are already 
-    # comparisons with gold, so just pass in a list of Nones to satisfy the input.
-    sys1_cluster_list = [list(metrics_a["f1"]) for metrics_a in all_metrics_a_list]
-    sys2_cluster_list = [list(metrics_b["f1"]) for metrics_b in all_metrics_b_list]
+    print("\n")
+    for metric_type in ["f1", "p", "r"]:
+        print(f"Paired Bootstrap Comparison of System A and System B on salient cluster metric: {metric_type}")
+        # The bootstrap script expects a list of gold values, but here the "system" values are already 
+        # comparisons with gold, so just pass in a list of Nones to satisfy the input.
+        sys1_cluster_list = [list(metrics_a[metric_type]) for metrics_a in all_metrics_a_list]
+        sys2_cluster_list = [list(metrics_b[metric_type]) for metrics_b in all_metrics_b_list]
 
-    gold = [None for _ in sys1_cluster_list[0]]
-    # Each bootstrap sample draws 50 items.
-    eval_with_hierarchical_paired_bootstrap(gold, sys1_cluster_list, sys2_cluster_list,
-                               num_samples=5000, sample_ratio=0.5,
-                               eval_type='avg')
+        gold = [None for _ in sys1_cluster_list[0]]
+        # Each bootstrap sample draws 50 items.
+        eval_with_hierarchical_paired_bootstrap(gold, sys1_cluster_list, sys2_cluster_list,
+                                num_samples=5000, sample_ratio=0.5,
+                                eval_type='avg')
 
 if __name__ == "__main__":
     main()
