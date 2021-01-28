@@ -55,7 +55,7 @@ class SpanClassifier(Model):
         return word
 
 
-    def compute_tf_idfs(self, span_words, doc_id, tf_idf_list, DEFAULT_MISSING_VALUE=0.0000):
+    def compute_tf_idfs(self, span_words, doc_id, tf_idf_list, DEFAULT_MISSING_VALUE=0.0005):
         average_tf_idf = 0.0
         if doc_id not in tf_idf_list:
             return DEFAULT_MISSING_VALUE, True
@@ -118,7 +118,7 @@ class SpanClassifier(Model):
 
                 tf_idf_features.append(batch_features)
 
-            tf_idf_features = torch.tensor(tf_idf_features, device='cuda:2')
+            tf_idf_features = torch.tensor(tf_idf_features, device=spans.device)
         else:
             tf_idf_features = None
 
