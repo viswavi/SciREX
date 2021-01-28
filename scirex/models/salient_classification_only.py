@@ -44,12 +44,7 @@ class SalientOnlyModel(Model):
         modules = Params(modules)
 
         self._saliency_classifier = SpanClassifier.from_params(
-<<<<<<< HEAD
-            vocab=vocab,
-            params=modules.pop("saliency_classifier")
-=======
             vocab=vocab, params=modules.pop("saliency_classifier")
->>>>>>> vijay_train_ner_only
         )
         self._endpoint_span_extractor = EndpointSpanExtractor(
             context_layer.get_output_dim(), combination="x,y"
