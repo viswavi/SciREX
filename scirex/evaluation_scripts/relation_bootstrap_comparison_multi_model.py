@@ -56,7 +56,10 @@ def main():
     gold_data, predicted_ner, predicted_salient_clusters, _, _ = processed_data_b
 
     for n in [2, 4]:
+        print(f"\nN: {n}")
+        retrieval_a_list = []
         retrieval_f1_a_list = []
+
         y_labels = None
         y_preds_a_list = []
         preds_length = None
@@ -91,8 +94,9 @@ def main():
                 retrieval_length = len(retrieval_metrics_df_a["f1"])
             else:
                 assert retrieval_length == len(retrieval_metrics_df_a["f1"])
-            retrieval_f1_a_list.append(retrieval_metrics_df_a["f1"])
+            retrieval_a_list.append(retrieval_metrics_df_a)
 
+        retrieval_b_list = []
         retrieval_f1_b_list = []
         y_preds_b_list = []
         for thresh_b, processed_data_b in zip(thresholds_b, processed_datas_b):
@@ -113,27 +117,28 @@ def main():
             assert preds_length == len(y_preds_b)
             y_preds_b_list.append(y_preds_b)
             assert retrieval_length == len(retrieval_metrics_df_b["f1"])
-            retrieval_f1_b_list.append(retrieval_metrics_df_b["f1"])
+            retrieval_b_list.append(retrieval_metrics_df_b)
 
+        for metric_type in ["macro-f1", "precision", "recall"]:
+            print(f"\nPaired Bootstrap Comparison of System A and System B on relation classification metric, {metric_type}:")
+            eval_with_hierarchical_paired_bootstrap(y_labels, y_preds_a_list, y_preds_b_list,
+                                    num_samples=10000, sample_ratio=0.50,
+                                    eval_type=metric_type)
 
-        print(f"Paired Bootstrap Comparison of System A and System B on relation classification metric:")
-        eval_with_hierarchical_paired_bootstrap(y_labels, y_preds_a_list, y_preds_b_list,
-                                num_samples=10000, sample_ratio=0.50,
-                                eval_type='macro-f1')
-
-        print("\n")
-        print(f"Paired Bootstrap Comparison of System A and System B on relation retrieval metric:")
+        print("\n\n")
         # The bootstrap script expects a list of gold values, but here the "system" values are already 
         # comparisons with gold, so just pass in a list of Nones to satisfy the input.
-        sys1_retrieval_list = retrieval_f1_a_list
-        sys2_retrieval_list = retrieval_f1_b_list
-        assert len(sys1_retrieval_list) == len(sys2_retrieval_list)
+        for metric_type in ["f1", "p", "r"]:
+            print(f"\nPaired Bootstrap Comparison of System A and System B on relation retrieval metric (\"{metric_type}\")")
+            sys1_retrieval_list = [metric[metric_type] for metric in retrieval_a_list]
+            sys2_retrieval_list = [metric[metric_type] for metric in retrieval_b_list]
+            assert len(sys1_retrieval_list) == len(sys2_retrieval_list)
 
-        gold = [None for _ in sys1_retrieval_list[0]]
-        # Each bootstrap sample draws 50 items.
-        eval_with_hierarchical_paired_bootstrap(gold, sys1_retrieval_list, sys2_retrieval_list,
-                                num_samples=10000, sample_ratio=0.76,
-                                eval_type='avg')
+            gold = [None for _ in sys1_retrieval_list[0]]
+            # Each bootstrap sample draws 50 items.
+            eval_with_hierarchical_paired_bootstrap(gold, sys1_retrieval_list, sys2_retrieval_list,
+                                    num_samples=10000, sample_ratio=0.76,
+                                    eval_type='avg')
 
 if __name__ == "__main__":
     main()

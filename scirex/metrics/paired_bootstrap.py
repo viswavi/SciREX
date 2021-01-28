@@ -2,7 +2,7 @@
 # https://github.com/neubig/util-scripts/blob/master/paired-bootstrap.py
 
 import numpy as np
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 from tqdm import tqdm
 
 EVAL_TYPE_ACC = "acc"
@@ -11,6 +11,8 @@ EVAL_TYPE_BLEU_DETOK = "bleu_detok"
 EVAL_TYPE_PEARSON = "pearson"
 EVAL_TYPE_F1 = "f1"
 EVAL_TYPE_MACRO_F1 = "macro-f1"
+EVAL_TYPE_PREC = "precision"
+EVAL_TYPE_REC = "recall"
 EVAL_TYPE_AVG = "avg"
 
 EVAL_TYPES = [EVAL_TYPE_ACC,
@@ -18,7 +20,9 @@ EVAL_TYPES = [EVAL_TYPE_ACC,
               EVAL_TYPE_BLEU_DETOK,
               EVAL_TYPE_PEARSON,
               EVAL_TYPE_F1,
-              EVAL_TYPE_AVG]
+              EVAL_TYPE_AVG,
+              EVAL_TYPE_PREC,
+              EVAL_TYPE_REC]
 
 def eval_preproc(data, eval_type='acc'):
   ''' Preprocess into the appropriate format for a particular evaluation type '''
@@ -28,9 +32,7 @@ def eval_preproc(data, eval_type='acc'):
       data = data.split()
     elif eval_type == EVAL_TYPE_PEARSON:
       data = float(data)
-    elif eval_type == EVAL_TYPE_F1:
-      data = float(data)
-    elif eval_type == EVAL_TYPE_MACRO_F1:
+    elif eval_type in [EVAL_TYPE_F1, EVAL_TYPE_MACRO_F1, EVAL_TYPE_PREC, EVAL_TYPE_REC]:
       data = float(data)
     elif eval_type == EVAL_TYPE_AVG:
       data = float(data)
@@ -65,6 +67,10 @@ def eval_measure(gold, sys, eval_type='acc'):
     return f1_score(gold, sys)
   elif eval_type == EVAL_TYPE_MACRO_F1:
     return f1_score(gold, sys, average="macro")
+  elif eval_type == EVAL_TYPE_PREC:
+    return precision_score(gold, sys)
+  elif eval_type == EVAL_TYPE_REC:
+    return recall_score(gold, sys)
   elif eval_type == EVAL_TYPE_AVG:
     return np.mean(sys)
   else:
