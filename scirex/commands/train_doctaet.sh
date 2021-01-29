@@ -19,6 +19,20 @@ export TRAIN_PATH=$DATA_BASE_PATH/train.jsonl
 export DEV_PATH=$DATA_BASE_PATH/dev.jsonl
 export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
-export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_doctaet/$1}
+if [ -z "$random_seed" ]; then
+  export random_seed=13370
+fi
+
+if [ -z "$numpy_seed" ]; then
+  export numpy_seed=1337
+fi
+
+if [ -z "$pytorch_seed" ]; then
+  export pytorch_seed=133
+fi
+
+
+default_output_dir=outputs/pwc_outputs/experiment_doctaet_${pytorch_seed}/$1
+export OUTPUT_BASE_PATH=${OUTPUT_DIR:-$default_output_dir}
 
 allennlp train -s $OUTPUT_BASE_PATH --include-package scirex $RECOVER $CONFIG_FILE

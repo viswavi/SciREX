@@ -10,6 +10,9 @@
         }
       },
   },
+  random_seed: std.extVar("random_seed"),
+  numpy_seed: std.extVar("numpy_seed"),
+  pytorch_seed: std.extVar("pytorch_seed"),
   train_data_path: std.extVar("TRAIN_PATH"),
   validation_data_path: std.extVar("DEV_PATH"),
   test_data_path: std.extVar("TEST_PATH"),
