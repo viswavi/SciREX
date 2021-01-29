@@ -76,6 +76,7 @@ def main():
     parser.add_argument("--thresh-b", default=None, type=float)
     parser.add_argument("--edge-degree-direction", default="both", choices=["both", "out", "in"], type=str)
     parser.add_argument("--num-buckets", default=6, type=int)
+    parser.add_argument("--metric-type", default="retrieval", choices=["retrieval", "classification"], type=str)
 
     args = parser.parse_args()
 
@@ -126,9 +127,9 @@ def main():
             assert len(y_preds_a) == len(y_preds_b)
 
             print(f"Paired Bootstrap Comparison of System A and System B on relation classification metric:")
-            eval_with_paired_bootstrap(y_labels, y_preds_a, y_preds_b,
-                                    num_samples=1000, sample_ratio=0.50,
-                                    eval_type='macro-f1', return_results=False)
+            sys1_summary_class, sys2_summary_class, p_value_lose_class, p_value_win_class = eval_with_paired_bootstrap(y_labels, y_preds_a, y_preds_b,
+                                    num_samples=5000, sample_ratio=0.50,
+                                    eval_type='macro-f1', return_results=True)
 
             print("\n")
             print(f"Paired Bootstrap Comparison of System A and System B on relation retrieval metric:")
@@ -143,10 +144,13 @@ def main():
             sys1_summary_ret, sys2_summary_ret, p_value_lose_ret, p_value_win_ret = eval_with_paired_bootstrap(gold, sys1_retrieval, sys2_retrieval,
                                     num_samples=1000, sample_ratio=0.75,
                                     eval_type='avg', return_results=True)
-            bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_ret), p_value_lose_ret], "diff": [list(sys2_summary_ret), p_value_win_ret]}
+            if args.metric_type == "retrieval":
+                bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_ret), p_value_lose_ret], "diff": [list(sys2_summary_ret), p_value_win_ret]}
+            else:
+                bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_class), p_value_lose_class], "diff": [list(sys2_summary_class), p_value_win_class]}
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, fname=f"/tmp/bucketed_eval_comparison_bucket_{args.num_buckets}_n_{n}.png")
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, fname=f"/tmp/bucketed_eval_comparison_bucket_{args.metric_type}_{args.num_buckets}_n_{n}.png")
 
 
 if __name__ == "__main__":
