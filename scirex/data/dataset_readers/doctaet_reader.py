@@ -70,8 +70,10 @@ class DoctaetReader(DatasetReader):
                 # Get fields from JSON dict
                 doc_id = json_dict["doc_id"]
                 doctaet_words = filter_to_doctaet(json_dict)
-
-                n_ary_relations: List[Dict[BaseEntityType, str]] = json_dict["n_ary_relations"]
+                try:
+                    n_ary_relations: List[Dict[BaseEntityType, str]] = json_dict["n_ary_relations"]
+                except:
+                    breakpoint()
 
                 possible_entities = {e: [] for e in used_entities}
                 for relation in n_ary_relations:

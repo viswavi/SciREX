@@ -1,5 +1,4 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export test_output_folder=test_outputs_relations/
 
 # echo "Predicting Relations End-to-End"
 # python scirex/predictors/predict_n_ary_relations.py \
