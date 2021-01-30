@@ -146,8 +146,28 @@ def compute_weighted_auc(gold_data,
 
     return average_precision, f1, f1_fixed, pr_at_thresholds, best_approximate_threshold
 
+def compute_cluster_width(doc, relation):
+    min_mention = int(1e100)
+    max_mention = -1
+    for (_, entity_name) in relation:
+        if len(doc["coref"][entity_name]) == 0:
+            continue
+        min_mention = min(min_mention, doc["coref"][entity_name][0][0])
+        max_mention = max(max_mention, doc["coref"][entity_name][-1][-1])
+    return float(max_mention - min_mention) / len(doc["words"])
 
-def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4):
+
+def compute_average_entity_cluster_width(doc, relation):
+    all_widths = []
+    for (_, entity_name) in relation:
+        if len(doc["coref"][entity_name]) == 0:
+            continue
+        min_mention = doc["coref"][entity_name][0][0]
+        max_mention = doc["coref"][entity_name][-1][-1]
+        all_widths.append(max_mention - min_mention)
+    return np.mean(all_widths) / len(doc["words"])
+
+def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4, cluster_width_bucket=None):
     retrieval_metrics = []
     num_predicted = 0
     num_labeled = 0
@@ -182,6 +202,13 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
 
             gold_relations = [tuple((t, x[t]) for t in types) for x in doc['n_ary_relations']]
             gold_relations = set([x for x in gold_relations if has_all_mentions(doc, x)])
+
+            if cluster_width_bucket is not None:
+                gold_relations_in_bucket = []
+                for relation in list(gold_relations):
+                    if compute_cluster_width(doc, relation) > cluster_width_bucket[0] and compute_cluster_width(doc, relation) < cluster_width_bucket[1]:
+                        gold_relations_in_bucket.append(relation)
+                gold_relations = set(gold_relations_in_bucket)
 
             relations_seen = set()
             relations_with_scores = []
