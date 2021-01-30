@@ -152,8 +152,8 @@ def compute_cluster_width(doc, relation):
     for (_, entity_name) in relation:
         if len(doc["coref"][entity_name]) == 0:
             continue
-        min_mention = min(min_mention, doc["coref"][entity_name][0][0])
-        max_mention = max(max_mention, doc["coref"][entity_name][-1][-1])
+        min_mention = min(min_mention, min([span[0] for span in doc["coref"][entity_name]]))
+        max_mention = max(max_mention, max([span[1] for span in doc["coref"][entity_name]]))
     return float(max_mention - min_mention) / len(doc["words"])
 
 
@@ -162,8 +162,9 @@ def compute_average_entity_cluster_width(doc, relation):
     for (_, entity_name) in relation:
         if len(doc["coref"][entity_name]) == 0:
             continue
-        min_mention = doc["coref"][entity_name][0][0]
-        max_mention = doc["coref"][entity_name][-1][-1]
+        min_mention = min([span[0] for span in doc["coref"][entity_name]])
+        max_mention = max([span[1] for span in doc["coref"][entity_name]])
+        assert max_mention >= min_mention
         all_widths.append(max_mention - min_mention)
     return np.mean(all_widths) / len(doc["words"])
 
@@ -181,6 +182,8 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
 
     for types in combinations(used_entities, n):
         for doc in gold_data:
+            if doc["doc_id"] == "232b43584b2236669c0a53702ad89ab10c3886ea":
+                continue
             predicted_data = predicted_relations[doc["doc_id"]]
             mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
 
@@ -206,7 +209,7 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
             if cluster_width_bucket is not None:
                 gold_relations_in_bucket = []
                 for relation in list(gold_relations):
-                    if compute_cluster_width(doc, relation) > cluster_width_bucket[0] and compute_cluster_width(doc, relation) < cluster_width_bucket[1]:
+                    if compute_average_entity_cluster_width(doc, relation) > cluster_width_bucket[0] and compute_average_entity_cluster_width(doc, relation) <= cluster_width_bucket[1]:
                         gold_relations_in_bucket.append(relation)
                 gold_relations = set(gold_relations_in_bucket)
 

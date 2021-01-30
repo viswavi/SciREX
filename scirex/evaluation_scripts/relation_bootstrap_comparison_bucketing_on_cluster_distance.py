@@ -50,7 +50,7 @@ def main():
         processed_datas_b.append(processed_data_b)
 
     gold_data, predicted_ner, predicted_salient_clusters, _, _ = processed_data_b
-    cluster_width_buckets = [(0.0, 0.5), (0.5, 0.75), (0.75, 0.95), (0.95, 1.0)]
+    cluster_width_buckets = [(0.0, 0.45), (0.4, 0.55), (0.55, 0.7), (0.7, 0.85), (0.85, 1.0)]
 
     for n in [4]:
         bucketed_eval_comparison = {}
@@ -152,15 +152,14 @@ def main():
             #bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_ret), p_value_lose_ret], "diff": [list(sys2_summary_ret), p_value_win_ret]}
             if args.metric_type == "retrieval":
                 bucketed_eval_comparison[bucket_name_formatted] = {"base": [list(sys1_summary_ret), p_value_lose_ret], "diff": [list(sys2_summary_ret), p_value_win_ret]}
-                ylabel = 'Mean Retrieval F1 score'
+                ylabel = 'Relation Retrieval F1 score'
             else:
                 bucketed_eval_comparison[bucket_name_formatted] = {"base": [list(sys1_summary_class), p_value_lose_class], "diff": [list(sys2_summary_class), p_value_win_class]}
-                ylabel = 'Mean Classification F1 score'
+                ylabel = 'Relation Classification F1 score'
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
-        xlabel = 'Width of relation'
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_bucketed_by_cluster_width_{args.metric_type}_{len(cluster_width_buckets)}_n_{n}.png")
-
+        xlabel = 'Average cluster width of relation (as a fraction of document length)'
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_bucketed_by_avg_cluster_width_{args.metric_type}_{len(cluster_width_buckets)}_n_{n}.png")
 
 
 if __name__ == "__main__":
