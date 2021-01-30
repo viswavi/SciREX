@@ -5,7 +5,7 @@ from typing import Dict
 
 import pandas as pd
 
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 from span_f1_metrics import SpanBasedF1Measure
 from scirex.metrics.paired_bootstrap import eval_with_paired_bootstrap
 from scirex.metrics.clustering_metrics import match_predicted_clusters_to_gold
@@ -109,8 +109,23 @@ def main(args):
 
     assert y_labels_a == y_labels_b, breakpoint()
     
-    
+    print(f"\nBaseline:")
+    print(f"Overall F1: {f1_score(y_labels_a, y_preds_a)}")
+    print(f"Overall Precision: {precision_score(y_labels_a, y_preds_a)}")
+    print(f"Overall Recall: {recall_score(y_labels_a, y_preds_a)}")
+    print(f"\nNew System:")
+    print(f"Overall F1: {f1_score(y_labels_b, y_preds_b)}")
+    print(f"Overall Precision: {precision_score(y_labels_b, y_preds_b)}")
+    print(f"Overall Recall: {recall_score(y_labels_b, y_preds_b)}")
+
+    print(f"Bootstrap (F1)")
     eval_with_paired_bootstrap(y_labels_a, y_preds_a, y_preds_b, num_samples=1000, sample_ratio=0.5, eval_type='f1')
+
+    print(f"\nBootstrap (Precision)")
+    eval_with_paired_bootstrap(y_labels_a, y_preds_a, y_preds_b, num_samples=1000, sample_ratio=0.5, eval_type='precision')
+
+    print(f"\nBootstrap (Recall)")
+    eval_with_paired_bootstrap(y_labels_a, y_preds_a, y_preds_b, num_samples=1000, sample_ratio=0.5, eval_type='recall')
     
 
 
