@@ -8,7 +8,7 @@ from scirex.metrics.paired_bootstrap import eval_with_paired_bootstrap
 from scirex.evaluation_scripts.relations_only_evaluate import prepare_data, compute_relations_metrics
 from scirex.commands.join_scirex_and_s2orc import S2OrcEntry, S2Metadata, bucket_documents_by_graph_degree
 
-def draw_box_plot_with_error_bars(bucketed_eval_comparison, fname = "/tmp/bucketed_eval_comparison.png"):
+def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname = "/tmp/bucketed_eval_comparison.png"):
     # set width of bar
     barWidth = 0.32
 
@@ -53,8 +53,8 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, fname = "/tmp/bucket
     ax.bar(r2, diff_means, color='green', width=barWidth, edgecolor='white', label='w/ Graph', yerr=diff_error_bars, error_kw=error_kw)
 
     # Add xticks on the middle of the group bars
-    ax.set_xlabel('Degree of documents in citation graph)', fontweight='bold')
-    ax.set_ylabel('Mean Retrieval F1 score')
+    ax.set_xlabel(xlabel, fontweight='bold')
+    ax.set_ylabel(ylabel)
     ax.set_xticklabels(bucket_names, rotation=15)
     ax.set_xticks([r + barWidth for r in range(len(r1))])
 
@@ -150,7 +150,7 @@ def main():
                 bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_class), p_value_lose_class], "diff": [list(sys2_summary_class), p_value_win_class]}
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, fname=f"/tmp/bucketed_eval_comparison_bucket_{args.metric_type}_{args.num_buckets}_n_{n}.png")
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, 'Degree of documents in citation graph)', 'Mean Retrieval F1 score', fname=f"/tmp/bucketed_eval_comparison_bucket_{args.metric_type}_{args.num_buckets}_n_{n}.png")
 
 
 if __name__ == "__main__":
