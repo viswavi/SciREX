@@ -20,6 +20,8 @@ parser.add_argument("--gold-file")
 parser.add_argument("--salient-mentions-files-a", help="Salient mentions from system A", nargs='+', type=str)
 parser.add_argument("--salient-mentions-files-b", help="Salient mentions from system B", nargs='+', type=str)
 parser.add_argument("--num-buckets", default=4, type=int)
+parser.add_argument("--use-local-coref-clusters", action="store_true")
+parser.add_argument("--eval-type", default="fpr", choices=["fpr", "fnr", "f1", "macro_f1"], type=str)
 
 
 def convert_to_dict(data):
@@ -59,7 +61,7 @@ def build_global_coreference_lists(gold_data):
             coreferences[coreferring_cluster_idx] = list(set(coreferences[coreferring_cluster_idx]))
     return coreferences          
 
-def compute_global_saliency_dict(gold_data, global_coref_clusters, counts_threshold=25):
+def compute_global_saliency_dict_global_coreferences(gold_data, global_coref_clusters, counts_threshold=25, ignore_always_salient=False):
     # Each value contains a pair of counts: [number_salient, number_non_salient]
     saliency_counts = [[0, 0] for _ in global_coref_clusters]
     saliency_dict = defaultdict(lambda: [0, 0])
@@ -88,7 +90,7 @@ def compute_global_saliency_dict(gold_data, global_coref_clusters, counts_thresh
             continue
         saliency_rate = float(saliency_count)/total_entity_count
 
-        if saliency_rate == 1.0:
+        if ignore_always_salient and saliency_rate == 1.0:
             # Only interested in entities that could be false positives, which means they
             # must sometimes be non-salient.
             discarded_entities += 1
@@ -98,7 +100,46 @@ def compute_global_saliency_dict(gold_data, global_coref_clusters, counts_thresh
     print(f"Discarded {discarded_entities} entities which appeared less than {counts_threshold} times")
     return saliency_ratios
 
-def salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_rate_dict, saliency_rate_buckets):
+def compute_global_saliency_dict_local_coreferences(gold_data, counts_threshold=25, ignore_always_salient=False):
+    # Each value contains a pair of counts: [number_salient, number_non_salient]
+    saliency_dict = defaultdict(lambda: [0, 0])
+    for doc in tqdm(gold_data):
+        for cluster in doc["coref"].values():
+            cluster_set = set()
+            for span in cluster:
+                standardized_surface_form = standardize_span(doc["words"][span[0]:span[1]])
+                if standardized_surface_form in cluster_set:
+                    continue
+                cluster_set.add(standardized_surface_form)
+                saliency_dict[standardized_surface_form][0] += len(cluster)
+        for cluster in doc["coref_non_salient"].values():
+            cluster_set = set()
+            for span in cluster:
+                standardized_surface_form = standardize_span(doc["words"][span[0]:span[1]])
+                if standardized_surface_form in cluster_set:
+                    continue
+                cluster_set.add(standardized_surface_form)
+                saliency_dict[standardized_surface_form][1] += len(cluster)
+
+    saliency_ratios = {}
+    discarded_entities = 0
+    for surface_form, counts in saliency_dict.items():
+        saliency_count = counts[0]
+        total_entity_count = sum(counts)
+        if total_entity_count < counts_threshold:
+            discarded_entities += 1
+            continue
+        saliency_rate = float(saliency_count)/total_entity_count
+        if ignore_always_salient and saliency_rate == 1.0:
+            # Only interested in entities that could be false positives, which means they
+            # must sometimes be non-salient.
+            discarded_entities += 1
+            continue
+        saliency_ratios[surface_form] = saliency_rate
+    return saliency_ratios
+
+def salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_rate_dict, saliency_rate_buckets, eval_type="fpr"):
+    assert eval_type in ["fpr", "fnr", "f1", "macro_f1"]
     all_metrics = []
     predicted = 0
     gold = 0
@@ -110,44 +151,74 @@ def salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predic
     for bucket in saliency_rate_buckets:
         bucket_formatted = str((round(bucket[0], 3), round(bucket[1], 3)))
         print(f"Bucket: {bucket_formatted}")
-        bucket_fps_a = [[] for _ in predicted_salient_mentions_a_list]
-        bucket_fps_b = [[] for _ in predicted_salient_mentions_b_list]
-        bucket_fps = [bucket_fps_a, bucket_fps_b]
+        bucket_values_a = [[] for _ in predicted_salient_mentions_a_list]
+        bucket_values_b = [[] for _ in predicted_salient_mentions_b_list]
+        bucket_values = [bucket_values_a, bucket_values_b]
+
         pred_len = None
         for doc in gold_data:
             gold_salient_spans = [span for coref_cluster in doc['coref'].values() for span in coref_cluster]
 
-            for i in range(2):
-                # For prediction in A, B:
-                for j, mention_predictions in enumerate(system_predictions[i]):
+        y_labels = None
+        for i in range(2):
+            # For prediction in A, B:
+            for j, mention_predictions in enumerate(system_predictions[i]):
+                y_labels_single_run = []
+                for doc in gold_data:
+                    gold_salient_spans = [span for coref_cluster in doc['coref'].values() for span in coref_cluster]
                     predicted_doc = mention_predictions[doc["doc_id"]]
                     for [start_span, end_span, saliency, _] in predicted_doc["saliency"]:
-                        if (start_span, end_span) in gold_salient_spans:
-                            # Only count labeled negatives
-                            continue
                         standardized_span_form = standardize_span(doc["words"][start_span:end_span])
                         if standardized_span_form not in saliency_rate_dict:
                             continue
                         saliency_rate = saliency_rate_dict[standardized_span_form]
-                        if saliency_rate >= bucket[0] and saliency_rate < bucket[1]:
-                            bucket_fps[i][j].append(1.0 if saliency else 0.0)
-
-        for bucket_fp_list in bucket_fps:
-            for system_fps in bucket_fp_list:
-                if pred_len is None:
-                    pred_len = len(system_fps)
+                        if not (saliency_rate >= bucket[0] and saliency_rate < bucket[1]):
+                            # Only count entities with global saliency rate in bucket.
+                            continue
+                        if eval_type == "fpr":
+                            # Compute FPR
+                            if (start_span, end_span) not in gold_salient_spans:
+                                # Only count labeled negatives
+                                bucket_values[i][j].append(1.0 if saliency else 0.0)
+                        elif eval_type == "fnr":
+                            # Compute FNR
+                            if (start_span, end_span) in gold_salient_spans:
+                                # Only count labeled positives
+                                bucket_values[i][j].append(0.0 if saliency else 1.0)
+                        else:
+                            # Compute F1
+                            true_label = (start_span, end_span) in gold_salient_spans
+                            bucket_values[i][j].append(saliency)
+                            y_labels_single_run.append(true_label)
+                if y_labels is None:
+                    y_labels = y_labels_single_run
                 else:
-                    assert pred_len == len(system_fps)
+                    assert y_labels == y_labels_single_run
+
+
+        for bucket_values_list in bucket_values:
+            for system_values in bucket_values_list:
+                if pred_len is None:
+                    pred_len = len(system_values)
+                else:
+                    assert pred_len == len(system_values)
         print(f"Samples in bucket: {pred_len}")
 
-        sys1_fp_list = bucket_fps[0]
-        sys2_fp_list = bucket_fps[1]
+        sys1_values_list = bucket_values[0]
+        sys2_values_list = bucket_values[1]
         # The bootstrap script expects a list of gold values, but here the "system" values are already 
         # comparisons with gold, so just pass in a list of Nones to satisfy the input.
-        gold_mentions = [None for _ in sys1_fp_list[0]]
-        sys1_summary, sys2_summary, p_value_lose, p_value_win = eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_fp_list, sys2_fp_list,
-                                num_samples=1000, sample_ratio=0.5,
-                                eval_type="avg", return_results=True)
+        if args.eval_type in ["fpr", "fnr"]:
+            gold_mentions = [None for _ in sys1_values_list[0]]
+            sys1_summary, sys2_summary, p_value_lose, p_value_win = eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_values_list, sys2_values_list,
+                                    num_samples=1000, sample_ratio=0.5,
+                                    eval_type="avg", return_results=True)
+        else:
+            gold_mentions = y_labels
+            f1_type = "f1" if eval_type == "f1" else "macro-f1"
+            sys1_summary, sys2_summary, p_value_lose, p_value_win = eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_values_list, sys2_values_list,
+                                    num_samples=1000, sample_ratio=0.5,
+                                    eval_type=f1_type, return_results=True)
         bucketed_eval_comparison[bucket_formatted] = {"base": [list(sys1_summary), p_value_lose], "diff": [list(sys2_summary), p_value_win]}
     return bucketed_eval_comparison
         
@@ -159,7 +230,13 @@ def main(args):
         d["clusters"] = d["coref"]
     
     global_coref_clusters = build_global_coreference_lists(gold_data)
-    saliency_dict = compute_global_saliency_dict(gold_data, global_coref_clusters, counts_threshold=2)
+    ignore_always_salient=args.eval_type == "fpr"
+    if args.use_local_coref_clusters:
+        saliency_dict = compute_global_saliency_dict_local_coreferences(gold_data, counts_threshold=2, ignore_always_salient=ignore_always_salient)
+        coref_string = "local_coref"
+    else:
+        saliency_dict = compute_global_saliency_dict_global_coreferences(gold_data, global_coref_clusters, counts_threshold=2, ignore_always_salient=ignore_always_salient)
+        coref_string = "global_coref"
 
     saliency_rates = list(saliency_dict.values())
     n, bins, patches = plt.hist(saliency_rates, 10, facecolor='green', alpha=0.75)
@@ -175,11 +252,21 @@ def main(args):
         saliency_rate_buckets.append((prev_bucket_end, prev_bucket_end + bucket_width))
         prev_bucket_end = prev_bucket_end + bucket_width
 
-    bucketed_eval_comparison = salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_dict, saliency_rate_buckets)
+    eval_type = args.eval_type
+    if args.eval_type == "fpr":
+        eval_type_string = "False Positive Rate"
+    elif args.eval_type == "fnr":
+        eval_type_string = "False Negative Rate"
+    elif args.eval_type == "f1":
+        eval_type_string = "f1"
+    else:
+        eval_type_string = "Macro-F1"
+
+    bucketed_eval_comparison = salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_dict, saliency_rate_buckets, eval_type=args.eval_type)
     draw_box_plot_with_error_bars(bucketed_eval_comparison,
                                   'Global saliency rate of entity',
-                                  'False Positive Rate',
-                                  fname=f"/tmp/bucketed_salient_mention_eval_bucketed_on_saliency_rate_{args.num_buckets}.png",
+                                  eval_type_string,
+                                  fname=f"/tmp/bucketed_salient_mention_eval_{eval_type}_bucketed_on_saliency_rate_{args.num_buckets}_{coref_string}.png"
                                 )
 
 

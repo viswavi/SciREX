@@ -16,7 +16,7 @@ from scirex.predictors.utils import map_and_intersect_predicted_clusters_to_gold
 from scirex_utilities.entity_utils import used_entities
 from scirex_utilities.json_utilities import load_jsonl
 
-def draw_box_plot_with_error_bars(bucketed_eval_comparison, fname = "/tmp/bucketed_eval_comparison.png"):
+def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname = "/tmp/bucketed_eval_comparison.png"):
     # set width of bar
     barWidth = 0.32
 
@@ -61,8 +61,8 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, fname = "/tmp/bucket
     ax.bar(r2, diff_means, color='green', width=barWidth, edgecolor='white', label='w/ Graph', yerr=diff_error_bars, error_kw=error_kw)
 
     # Add xticks on the middle of the group bars
-    ax.set_xlabel('Degree of documents in citation graph)', fontweight='bold')
-    ax.set_ylabel('Macro-F1 (Salient Mention Classification)')
+    ax.set_xlabel(xlabel, fontweight='bold')
+    ax.set_ylabel(ylabel)
     ax.set_xticklabels(bucket_names, rotation=15)
     ax.set_xticks([r + barWidth for r in range(len(r1))])
 
