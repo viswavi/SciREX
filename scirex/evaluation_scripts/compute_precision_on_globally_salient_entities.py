@@ -16,12 +16,12 @@ from scirex_utilities.entity_utils import used_entities
 from scirex_utilities.json_utilities import load_jsonl
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--gold-file")
+parser.add_argument("--train-gold-file")
+parser.add_argument("--test-gold-file")
 parser.add_argument("--salient-mentions-files-a", help="Salient mentions from system A", nargs='+', type=str)
 parser.add_argument("--salient-mentions-files-b", help="Salient mentions from system B", nargs='+', type=str)
 parser.add_argument("--num-buckets", default=4, type=int)
 parser.add_argument("--use-local-coref-clusters", action="store_true")
-parser.add_argument("--eval-type", default="fpr", choices=["fpr", "fnr", "f1", "macro_f1"], type=str)
 
 
 def convert_to_dict(data):
@@ -61,7 +61,7 @@ def build_global_coreference_lists(gold_data):
             coreferences[coreferring_cluster_idx] = list(set(coreferences[coreferring_cluster_idx]))
     return coreferences          
 
-def compute_global_saliency_dict_global_coreferences(gold_data, global_coref_clusters, counts_threshold=25, ignore_always_salient=False):
+def compute_global_saliency_dict_global_coreferences(gold_data, global_coref_clusters, counts_threshold=25):
     # Each value contains a pair of counts: [number_salient, number_non_salient]
     saliency_counts = [[0, 0] for _ in global_coref_clusters]
     saliency_dict = defaultdict(lambda: [0, 0])
@@ -89,18 +89,12 @@ def compute_global_saliency_dict_global_coreferences(gold_data, global_coref_clu
             discarded_entities += 1
             continue
         saliency_rate = float(saliency_count)/total_entity_count
-
-        if ignore_always_salient and saliency_rate == 1.0:
-            # Only interested in entities that could be false positives, which means they
-            # must sometimes be non-salient.
-            discarded_entities += 1
-            continue
         for surface_form in coref_cluster:
             saliency_ratios[surface_form] = saliency_rate
     print(f"Discarded {discarded_entities} entities which appeared less than {counts_threshold} times")
     return saliency_ratios
 
-def compute_global_saliency_dict_local_coreferences(gold_data, counts_threshold=25, ignore_always_salient=False):
+def compute_global_saliency_dict_local_coreferences(gold_data, counts_threshold=25):
     # Each value contains a pair of counts: [number_salient, number_non_salient]
     saliency_dict = defaultdict(lambda: [0, 0])
     for doc in tqdm(gold_data):
@@ -130,11 +124,6 @@ def compute_global_saliency_dict_local_coreferences(gold_data, counts_threshold=
             discarded_entities += 1
             continue
         saliency_rate = float(saliency_count)/total_entity_count
-        if ignore_always_salient and saliency_rate == 1.0:
-            # Only interested in entities that could be false positives, which means they
-            # must sometimes be non-salient.
-            discarded_entities += 1
-            continue
         saliency_ratios[surface_form] = saliency_rate
     return saliency_ratios
 
@@ -208,34 +197,41 @@ def salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predic
         sys2_values_list = bucket_values[1]
         # The bootstrap script expects a list of gold values, but here the "system" values are already 
         # comparisons with gold, so just pass in a list of Nones to satisfy the input.
-        if args.eval_type in ["fpr", "fnr"]:
+        if eval_type in ["fpr", "fnr"]:
             gold_mentions = [None for _ in sys1_values_list[0]]
             sys1_summary, sys2_summary, p_value_lose, p_value_win = eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_values_list, sys2_values_list,
                                     num_samples=1000, sample_ratio=0.5,
                                     eval_type="avg", return_results=True)
         else:
-            gold_mentions = y_labels
-            f1_type = "f1" if eval_type == "f1" else "macro-f1"
-            sys1_summary, sys2_summary, p_value_lose, p_value_win = eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_values_list, sys2_values_list,
-                                    num_samples=1000, sample_ratio=0.5,
-                                    eval_type=f1_type, return_results=True)
+            try:
+                gold_mentions = y_labels
+                f1_type = "f1" if eval_type == "f1" else "macro-f1"
+                sys1_summary, sys2_summary, p_value_lose, p_value_win = eval_with_hierarchical_paired_bootstrap(gold_mentions, sys1_values_list, sys2_values_list,
+                                        num_samples=1000, sample_ratio=0.5,
+                                        eval_type=f1_type, return_results=True)
+            except:
+                breakpoint()
         bucketed_eval_comparison[bucket_formatted] = {"base": [list(sys1_summary), p_value_lose], "diff": [list(sys2_summary), p_value_win]}
     return bucketed_eval_comparison
         
 
 def main(args):
-    gold_data = load_jsonl(args.gold_file)
-    for d in gold_data:
+    train_gold_data = load_jsonl(args.train_gold_file)
+    for d in train_gold_data:
+        merge_method_subrelations(d)
+        d["clusters"] = d["coref"]
+
+    test_gold_data = load_jsonl(args.test_gold_file)
+    for d in test_gold_data:
         merge_method_subrelations(d)
         d["clusters"] = d["coref"]
     
-    global_coref_clusters = build_global_coreference_lists(gold_data)
-    ignore_always_salient=args.eval_type == "fpr"
     if args.use_local_coref_clusters:
-        saliency_dict = compute_global_saliency_dict_local_coreferences(gold_data, counts_threshold=2, ignore_always_salient=ignore_always_salient)
+        saliency_dict = compute_global_saliency_dict_local_coreferences(train_gold_data, counts_threshold=2)
         coref_string = "local_coref"
     else:
-        saliency_dict = compute_global_saliency_dict_global_coreferences(gold_data, global_coref_clusters, counts_threshold=2, ignore_always_salient=ignore_always_salient)
+        global_coref_clusters = build_global_coreference_lists(train_gold_data)
+        saliency_dict = compute_global_saliency_dict_global_coreferences(train_gold_data, global_coref_clusters, counts_threshold=2)
         coref_string = "global_coref"
 
     saliency_rates = list(saliency_dict.values())
@@ -252,22 +248,14 @@ def main(args):
         saliency_rate_buckets.append((prev_bucket_end, prev_bucket_end + bucket_width))
         prev_bucket_end = prev_bucket_end + bucket_width
 
-    eval_type = args.eval_type
-    if args.eval_type == "fpr":
-        eval_type_string = "False Positive Rate"
-    elif args.eval_type == "fnr":
-        eval_type_string = "False Negative Rate"
-    elif args.eval_type == "f1":
-        eval_type_string = "f1"
-    else:
-        eval_type_string = "Macro-F1"
-
-    bucketed_eval_comparison = salent_mentions_metrics(gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_dict, saliency_rate_buckets, eval_type=args.eval_type)
-    draw_box_plot_with_error_bars(bucketed_eval_comparison,
-                                  'Global saliency rate of entity',
-                                  eval_type_string,
-                                  fname=f"/tmp/bucketed_salient_mention_eval_{eval_type}_bucketed_on_saliency_rate_{args.num_buckets}_{coref_string}.png"
-                                )
+    for eval_type, eval_type_string in [("f1", "F1"), ("macro_f1", "Macro-F1"), ("fpr", "False Positive Rate"), ("fnr", "False Negative Rate")]:
+        print(f"eval_type: {eval_type}")
+        bucketed_eval_comparison = salent_mentions_metrics(test_gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_dict, saliency_rate_buckets, eval_type=eval_type)
+        draw_box_plot_with_error_bars(bucketed_eval_comparison,
+                                    'Global saliency rate of entity (from training set)',
+                                    eval_type_string,
+                                    fname=f"/tmp/bucketed_salient_mention_eval_{eval_type}_bucketed_on_train_saliency_rate_{args.num_buckets}_{coref_string}.png"
+                                    )
 
 
 if __name__ == "__main__":
