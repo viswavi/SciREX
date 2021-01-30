@@ -168,6 +168,36 @@ def compute_average_entity_cluster_width(doc, relation):
         all_widths.append(max_mention - min_mention)
     return np.mean(all_widths) / len(doc["words"])
 
+
+
+def compute_average_minimum_cluster_distance(doc, relation):
+    cluster_pair_distances = []
+    pairs_already_checked = set()
+    for i, (_, entity_name_a) in enumerate(relation):
+        for j, (_, entity_name_b) in enumerate(relation):
+            if tuple(sorted([i,j])) in pairs_already_checked or i == j:
+                continue
+            pairs_already_checked.add(tuple(sorted([i,j])))
+            mention_a_starts = [span[0] for span in doc["coref"][entity_name_a]]
+            mention_a_ends = [span[1] for span in doc["coref"][entity_name_a]]
+            mention_b_starts = [span[0] for span in doc["coref"][entity_name_b]]
+            mention_b_ends = [span[0] for span in doc["coref"][entity_name_b]]
+            distances = []
+            for b_idx in mention_b_starts:
+                for a_idx in mention_a_ends:
+                    if b_idx > a_idx:
+                        distances.append(b_idx - a_idx)
+            for a_idx in mention_a_starts:
+                for b_idx in mention_b_ends:
+                    if a_idx > b_idx:
+                        distances.append(a_idx - b_idx)
+            if len(distances) == 0:
+                continue
+            minimum_cluster_distance = np.mean(distances)
+            cluster_pair_distances.append(minimum_cluster_distance)
+
+    return np.mean(cluster_pair_distances) / len(doc["words"])
+
 def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4, cluster_width_bucket=None):
     retrieval_metrics = []
     num_predicted = 0
@@ -209,7 +239,7 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
             if cluster_width_bucket is not None:
                 gold_relations_in_bucket = []
                 for relation in list(gold_relations):
-                    if compute_average_entity_cluster_width(doc, relation) > cluster_width_bucket[0] and compute_average_entity_cluster_width(doc, relation) <= cluster_width_bucket[1]:
+                    if compute_average_minimum_cluster_distance(doc, relation) > cluster_width_bucket[0] and compute_average_minimum_cluster_distance(doc, relation) <= cluster_width_bucket[1]:
                         gold_relations_in_bucket.append(relation)
                 gold_relations = set(gold_relations_in_bucket)
 

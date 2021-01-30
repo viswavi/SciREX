@@ -50,7 +50,7 @@ def main():
         processed_datas_b.append(processed_data_b)
 
     gold_data, predicted_ner, predicted_salient_clusters, _, _ = processed_data_b
-    cluster_width_buckets = [(0.0, 0.45), (0.4, 0.55), (0.55, 0.7), (0.7, 0.85), (0.85, 1.0)]
+    cluster_width_buckets = [(0.0, 0.29), (0.29, 0.37), (0.37, 0.4), (0.4, 0.54)]
 
     for n in [4]:
         bucketed_eval_comparison = {}
@@ -158,8 +158,8 @@ def main():
                 ylabel = 'Relation Classification F1 score'
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
-        xlabel = 'Average cluster width of relation (as a fraction of document length)'
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_bucketed_by_avg_cluster_width_{args.metric_type}_{len(cluster_width_buckets)}_n_{n}.png")
+        xlabel = 'Minimum cluster distance of relation (as a fraction of document length)'
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_bucketed_by_avg_cluster_distance_{args.metric_type}_{len(cluster_width_buckets)}_n_{n}.png")
 
 
 if __name__ == "__main__":
