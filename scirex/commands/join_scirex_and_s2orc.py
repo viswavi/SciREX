@@ -561,7 +561,7 @@ def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True, degree_dir
     return degrees
 
 
-def draw_bar_chart(data, ylabel, xlabel=None, fname="/tmp/scratch.png", num_buckets=100, xlimit=None):
+def draw_bar_chart(data, ylabel=None, xlabel=None, fname="/tmp/scratch.png", num_buckets=100, xlimit=None):
     fig, ax = plt.subplots()
     if xlabel:
         ax.set_xlabel(xlabel)
@@ -588,8 +588,9 @@ def plot_histogram_of_degrees():
     in_degree_counts = list(in_degrees.values())
     out_degree_counts = list(out_degrees.values())
 
-    draw_bar_chart(out_degree_counts, "Frequency",  fname="/tmp/out_degree_histogram.pdf", num_buckets=30)
-    draw_bar_chart(in_degree_counts, "Frequency", fname="/tmp/in_degree_histogram.pdf", xlimit=2500, num_buckets=350)
+    plt.rcParams["font.size"] = "30"
+    draw_bar_chart(out_degree_counts, ylabel=None, xlabel="Out-degree", fname="/tmp/out_degree_histogram.pdf", num_buckets=30)
+    draw_bar_chart(in_degree_counts, ylabel="Frequency", xlabel="In-degree", fname="/tmp/in_degree_histogram.pdf", xlimit=2500, num_buckets=350)
 
 def bucket_documents_by_graph_degree(test_set, num_buckets=6, degree_direction="both", remap_to_scirex_id = True):
     all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
