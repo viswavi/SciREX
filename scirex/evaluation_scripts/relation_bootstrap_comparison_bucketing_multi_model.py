@@ -57,6 +57,7 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fnam
     ax.set_ylabel(ylabel)
     ax.set_xticklabels(bucket_names, rotation=15)
     ax.set_xticks([r + barWidth for r in range(len(r1))])
+    ax.set_ylim(0, 1)
 
     # Create legend & Show graphic
     ax.legend(loc='upper left')
