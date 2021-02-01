@@ -49,11 +49,11 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fnam
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.bar(r1, base_means, color='maroon', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
-    ax.bar(r2, diff_means, color='green', width=barWidth, edgecolor='white', label='w/ Graph', yerr=diff_error_bars, error_kw=error_kw)
+    ax.bar(r1, base_means, color='peachpuff', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
+    ax.bar(r2, diff_means, color='lightblue', width=barWidth, edgecolor='white', label='w/ Graph + Citance', yerr=diff_error_bars, error_kw=error_kw)
 
     # Add xticks on the middle of the group bars
-    ax.set_xlabel(xlabel, fontweight='bold')
+    # ax.set_xlabel(xlabel, fontweight='bold')
     ax.set_ylabel(ylabel)
     ax.set_xticklabels(bucket_names, rotation=15)
     ax.set_xticks([r + barWidth for r in range(len(r1))])

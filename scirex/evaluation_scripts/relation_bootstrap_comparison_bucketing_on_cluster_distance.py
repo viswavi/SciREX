@@ -142,7 +142,7 @@ def main():
             metric_type = args.metric
             sys1_retrieval_list = [metric[metric_type] for metric in retrieval_a_list]
             sys2_retrieval_list = [metric[metric_type] for metric in retrieval_b_list]
-            assert len(sys1_retrieval_list) == len(sys2_retrieval_list)
+            assert len(sys1_retrieval_list[0]) == len(sys2_retrieval_list[0])
 
             gold = [None for _ in sys1_retrieval_list[0]]
             # Each bootstrap sample draws 50 items.
@@ -155,11 +155,11 @@ def main():
                 ylabel = 'Relation Retrieval F1 score'
             else:
                 bucketed_eval_comparison[bucket_name_formatted] = {"base": [list(sys1_summary_class), p_value_lose_class], "diff": [list(sys2_summary_class), p_value_win_class]}
-                ylabel = 'Relation Classification F1 score'
+                ylabel = 'Corpus-Level F1'
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
         xlabel = 'Minimum cluster distance of relation (as a fraction of document length)'
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_bucketed_by_avg_cluster_distance_{args.metric_type}_{len(cluster_width_buckets)}_n_{n}.png")
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_graph_and_citance_comparison_bucketed_by_avg_cluster_distance_{args.metric_type}_{len(cluster_width_buckets)}_n_{n}.pdf")
 
 
 if __name__ == "__main__":

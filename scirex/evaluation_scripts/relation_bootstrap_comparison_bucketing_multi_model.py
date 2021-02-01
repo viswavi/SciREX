@@ -49,8 +49,8 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fnam
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.bar(r1, base_means, color='lightcoral', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
-    ax.bar(r2, diff_means, color='lightgreen', width=barWidth, edgecolor='white', label='w/ Citances', yerr=diff_error_bars, error_kw=error_kw)
+    ax.bar(r1, base_means, color='peachpuff', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
+    ax.bar(r2, diff_means, color='lightblue', width=barWidth, edgecolor='white', label='w/ Graph + Citances', yerr=diff_error_bars, error_kw=error_kw)
 
     # Add xticks on the middle of the group bars
     # ax.set_xlabel(xlabel, fontweight='bold')
@@ -224,7 +224,7 @@ def main():
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
         xlabel = '{} of documents in citation graph'.format("Degree" if args.edge_degree_direction == "both" else "In-degree" if args.edge_degree_direction == "out" else "Out-degree")
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_manual_bucket_citances_multi_model_{args.metric_type}_{args.num_buckets}_{args.edge_degree_direction}_n_{n}.pdf")
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_manual_bucket_graph_and_citances_multi_model_{args.metric_type}_{args.num_buckets}_{args.edge_degree_direction}_n_{n}.pdf")
 
 
 if __name__ == "__main__":
