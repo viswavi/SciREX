@@ -57,8 +57,8 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fnam
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.bar(r1, base_means, color='maroon', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
-    ax.bar(r2, diff_means, color='green', width=barWidth, edgecolor='white', label='w/ Graph', yerr=diff_error_bars, error_kw=error_kw)
+    ax.bar(r1, base_means, color='peachpuff', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
+    ax.bar(r2, diff_means, color='lightblue', width=barWidth, edgecolor='white', label='w/ Graph', yerr=diff_error_bars, error_kw=error_kw)
 
     # Add xticks on the middle of the group bars
     ax.set_xlabel(xlabel, fontweight='bold')
@@ -71,6 +71,9 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fnam
     plt.tight_layout()
     fig.savefig(fname, dpi=400, transparent=True)
     print(f"Wrote plot to {fname}")
+    import tikzplotlib
+    tikzplotlib.save(f"{fname}.tex")
+    print(f"Wrote tikz plot to {fname}.tex")
 
 def has_all_mentions(doc, relation):
     has_mentions = all(len(doc["clusters"][x[1]]) > 0 for x in relation)

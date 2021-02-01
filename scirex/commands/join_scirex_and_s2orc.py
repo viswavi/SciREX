@@ -611,7 +611,6 @@ def bucket_documents_by_graph_degree(test_set, num_buckets=6, degree_direction="
         buckets[-1] = ((start, end), docs)
     return buckets
 
-
 def bucket_documents_by_manual_buckets(test_set, buckets, degree_direction="both", remap_to_scirex_id = True):
     all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
     buckets = [(bucket, []) for bucket in buckets]

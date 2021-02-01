@@ -9,8 +9,6 @@ import pandas as pd
 
 from scirex.evaluation_scripts.salient_bootstrap_comparison_bucketing import draw_box_plot_with_error_bars
 from scirex.metrics.paired_bootstrap import eval_with_hierarchical_paired_bootstrap
-from scirex.metrics.clustering_metrics import match_predicted_clusters_to_gold
-from scirex.metrics.f1 import compute_f1
 from scirex.predictors.utils import map_predicted_spans_to_gold, merge_method_subrelations
 from scirex_utilities.entity_utils import used_entities
 from scirex_utilities.json_utilities import load_jsonl
@@ -252,9 +250,9 @@ def main(args):
         print(f"eval_type: {eval_type}")
         bucketed_eval_comparison = salent_mentions_metrics(test_gold_data, predicted_salient_mentions_a_list, predicted_salient_mentions_b_list, saliency_dict, saliency_rate_buckets, eval_type=eval_type)
         draw_box_plot_with_error_bars(bucketed_eval_comparison,
-                                    'Global saliency rate of entity (from training set)',
+                                    None,
                                     eval_type_string,
-                                    fname=f"/tmp/bucketed_salient_mention_eval_{eval_type}_bucketed_on_train_saliency_rate_{args.num_buckets}_{coref_string}.png"
+                                    fname=f"/tmp/bucketed_salient_mention_eval_graph_{eval_type}_bucketed_on_train_saliency_rate_{args.num_buckets}_{coref_string}.pdf"
                                     )
 
 
