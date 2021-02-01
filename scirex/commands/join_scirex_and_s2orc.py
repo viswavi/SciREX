@@ -548,7 +548,7 @@ def get_citation_graph(radius, remap_to_scirex_id = False):
 def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True, degree_direction="both"):
     assert degree_direction in ["both", "out", "in"]
 
-    in_graph, out_graph = get_citation_graph(1, remap_to_scirex_id=remap_to_scirex_id)
+    out_graph, in_graph = get_citation_graph(1, remap_to_scirex_id=remap_to_scirex_id)
     scirex_paper_ids = list(get_scirex_docids())
     degrees = {}
     for doc_id in scirex_paper_ids:
@@ -562,7 +562,7 @@ def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True, degree_dir
 
 
 def bucket_documents_by_graph_degree(test_set, num_buckets=6, degree_direction="both", remap_to_scirex_id = True):
-    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction="both")
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
     test_degrees = {}
     for doc in test_set:
         test_degrees[doc] = all_degrees.get(doc, 0)
@@ -579,6 +579,23 @@ def bucket_documents_by_graph_degree(test_set, num_buckets=6, degree_direction="
         if degree > end:
             end = degree
         buckets[-1] = ((start, end), docs)
+    return buckets
+
+
+
+
+def bucket_documents_by_manual_buckets(test_set, buckets, degree_direction="both", remap_to_scirex_id = True):
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
+    buckets = [(bucket, []) for bucket in buckets]
+    for doc in test_set:
+        graph_degree = all_degrees.get(doc, 0)
+        for i in range(len(buckets)):
+            bucket_start = buckets[i][0][0]
+            bucket_end = buckets[i][0][1]
+            if graph_degree >= bucket_start and (graph_degree < bucket_end or (graph_degree <= bucket_end and i == len(buckets) - 1)):
+                buckets[i][1].append(doc)
+                break
+    assert set([x for y in buckets for x in y[1]]) == set(test_set), breakpoint()
     return buckets
 
 

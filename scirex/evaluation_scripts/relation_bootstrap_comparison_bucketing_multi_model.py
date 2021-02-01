@@ -6,9 +6,9 @@ from typing import Dict, List, Tuple
 
 from scirex.metrics.paired_bootstrap import eval_with_hierarchical_paired_bootstrap
 from scirex.evaluation_scripts.relations_only_evaluate import prepare_data, compute_relations_metrics
-from scirex.commands.join_scirex_and_s2orc import S2OrcEntry, S2Metadata, bucket_documents_by_graph_degree
+from scirex.commands.join_scirex_and_s2orc import S2OrcEntry, S2Metadata, bucket_documents_by_graph_degree, bucket_documents_by_manual_buckets
 
-def draw_box_plot_with_error_bars(bucketed_eval_comparison, fname = "/tmp/bucketed_eval_comparison.png"):
+def draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname = "/tmp/bucketed_eval_comparison.png"):
     # set width of bar
     barWidth = 0.32
 
@@ -49,12 +49,12 @@ def draw_box_plot_with_error_bars(bucketed_eval_comparison, fname = "/tmp/bucket
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.bar(r1, base_means, color='maroon', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
-    ax.bar(r2, diff_means, color='green', width=barWidth, edgecolor='white', label='w/ Graph', yerr=diff_error_bars, error_kw=error_kw)
+    ax.bar(r1, base_means, color='lightcoral', width=barWidth, edgecolor='white', label='Baseline', yerr=base_error_bars, error_kw=error_kw)
+    ax.bar(r2, diff_means, color='lightgreen', width=barWidth, edgecolor='white', label='w/ Citances', yerr=diff_error_bars, error_kw=error_kw)
 
     # Add xticks on the middle of the group bars
-    ax.set_xlabel('Degree of documents in citation graph)', fontweight='bold')
-    ax.set_ylabel('Mean Retrieval F1 score')
+    # ax.set_xlabel(xlabel, fontweight='bold')
+    ax.set_ylabel(ylabel)
     ax.set_xticklabels(bucket_names, rotation=15)
     ax.set_xticks([r + barWidth for r in range(len(r1))])
 
@@ -110,7 +110,10 @@ def main():
 
     gold_data, predicted_ner, predicted_salient_clusters, _, _ = processed_data_b
     doc_ids = [doc["doc_id"] for doc in gold_data]
-    doc_buckets = bucket_documents_by_graph_degree(doc_ids, num_buckets=args.num_buckets, degree_direction=args.edge_degree_direction)
+    # doc_buckets = bucket_documents_by_graph_degree(doc_ids, num_buckets=args.num_buckets, degree_direction=args.edge_degree_direction)
+
+    manual_buckets = [(0, 70), (70, 450), (450, 12131)]
+    doc_buckets = bucket_documents_by_manual_buckets(doc_ids, buckets=manual_buckets, degree_direction=args.edge_degree_direction)
 
     for n in [4]:
         bucketed_eval_comparison = {}
@@ -202,7 +205,7 @@ def main():
             metric_type = args.metric
             sys1_retrieval_list = [metric[metric_type] for metric in retrieval_a_list]
             sys2_retrieval_list = [metric[metric_type] for metric in retrieval_b_list]
-            assert len(sys1_retrieval_list) == len(sys2_retrieval_list)
+            assert len(sys1_retrieval_list[0]) == len(sys2_retrieval_list[0])
 
             gold = [None for _ in sys1_retrieval_list[0]]
             # Each bootstrap sample draws 50 items.
@@ -212,12 +215,15 @@ def main():
             #bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_ret), p_value_lose_ret], "diff": [list(sys2_summary_ret), p_value_win_ret]}
             if args.metric_type == "retrieval":
                 bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_ret), p_value_lose_ret], "diff": [list(sys2_summary_ret), p_value_win_ret]}
+                ylabel = 'Document-Level F1'
             else:
                 bucketed_eval_comparison[str(bucket_name)] = {"base": [list(sys1_summary_class), p_value_lose_class], "diff": [list(sys2_summary_class), p_value_win_class]}
+                ylabel = 'Classification F1 score'
 
         print(f"Bucket evaluations (base):\n{json.dumps(bucketed_eval_comparison, indent=2)}")
 
-        draw_box_plot_with_error_bars(bucketed_eval_comparison, fname=f"/tmp/bucketed_eval_comparison_bucket_multi_model_{args.metric_type}_{args.num_buckets}_n_{n}.png")
+        xlabel = '{} of documents in citation graph'.format("Degree" if args.edge_degree_direction == "both" else "In-degree" if args.edge_degree_direction == "out" else "Out-degree")
+        draw_box_plot_with_error_bars(bucketed_eval_comparison, xlabel, ylabel, fname=f"/tmp/bucketed_eval_comparison_manual_bucket_citances_multi_model_{args.metric_type}_{args.num_buckets}_{args.edge_degree_direction}_n_{n}.pdf")
 
 
 if __name__ == "__main__":
