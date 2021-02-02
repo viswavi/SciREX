@@ -93,7 +93,6 @@ def eval_with_paired_bootstrap(gold, sys1, sys2,
   '''
   assert(len(gold) == len(sys1))
   assert(len(gold) == len(sys2))
-
   # Preprocess the data appropriately for they type of eval
   gold = [eval_preproc(x, eval_type) for x in gold]
   sys1 = [eval_preproc(x, eval_type) for x in sys1]
