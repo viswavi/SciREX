@@ -146,8 +146,59 @@ def compute_weighted_auc(gold_data,
 
     return average_precision, f1, f1_fixed, pr_at_thresholds, best_approximate_threshold
 
+def compute_cluster_width(doc, relation):
+    min_mention = int(1e100)
+    max_mention = -1
+    for (_, entity_name) in relation:
+        if len(doc["coref"][entity_name]) == 0:
+            continue
+        min_mention = min(min_mention, min([span[0] for span in doc["coref"][entity_name]]))
+        max_mention = max(max_mention, max([span[1] for span in doc["coref"][entity_name]]))
+    return float(max_mention - min_mention) / len(doc["words"])
 
-def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4, average='binary'):
+
+def compute_average_entity_cluster_width(doc, relation):
+    all_widths = []
+    for (_, entity_name) in relation:
+        if len(doc["coref"][entity_name]) == 0:
+            continue
+        min_mention = min([span[0] for span in doc["coref"][entity_name]])
+        max_mention = max([span[1] for span in doc["coref"][entity_name]])
+        assert max_mention >= min_mention
+        all_widths.append(max_mention - min_mention)
+    return np.mean(all_widths) / len(doc["words"])
+
+
+
+def compute_average_minimum_cluster_distance(doc, relation):
+    cluster_pair_distances = []
+    pairs_already_checked = set()
+    for i, (_, entity_name_a) in enumerate(relation):
+        for j, (_, entity_name_b) in enumerate(relation):
+            if tuple(sorted([i,j])) in pairs_already_checked or i == j:
+                continue
+            pairs_already_checked.add(tuple(sorted([i,j])))
+            mention_a_starts = [span[0] for span in doc["coref"][entity_name_a]]
+            mention_a_ends = [span[1] for span in doc["coref"][entity_name_a]]
+            mention_b_starts = [span[0] for span in doc["coref"][entity_name_b]]
+            mention_b_ends = [span[0] for span in doc["coref"][entity_name_b]]
+            distances = []
+            for b_idx in mention_b_starts:
+                for a_idx in mention_a_ends:
+                    if b_idx > a_idx:
+                        distances.append(b_idx - a_idx)
+            for a_idx in mention_a_starts:
+                for b_idx in mention_b_ends:
+                    if a_idx > b_idx:
+                        distances.append(a_idx - b_idx)
+            if len(distances) == 0:
+                continue
+            minimum_cluster_distance = np.mean(distances)
+            cluster_pair_distances.append(minimum_cluster_distance)
+
+    return np.mean(cluster_pair_distances) / len(doc["words"])
+
+def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_clusters, predicted_relations, predicted_cluster_to_gold_cluster_map, thresh=None, n=4, cluster_width_bucket=None):
     retrieval_metrics = []
     num_predicted = 0
     num_labeled = 0
@@ -161,6 +212,8 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
 
     for types in combinations(used_entities, n):
         for doc in gold_data:
+            if doc["doc_id"] == "232b43584b2236669c0a53702ad89ab10c3886ea":
+                continue
             predicted_data = predicted_relations[doc["doc_id"]]
             mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
 
@@ -183,6 +236,13 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
             gold_relations = [tuple((t, x[t]) for t in types) for x in doc['n_ary_relations']]
             gold_relations = set([x for x in gold_relations if has_all_mentions(doc, x)])
 
+            if cluster_width_bucket is not None:
+                gold_relations_in_bucket = []
+                for relation in list(gold_relations):
+                    if compute_average_minimum_cluster_distance(doc, relation) > cluster_width_bucket[0] and compute_average_minimum_cluster_distance(doc, relation) <= cluster_width_bucket[1]:
+                        gold_relations_in_bucket.append(relation)
+                gold_relations = set(gold_relations_in_bucket)
+
             relations_seen = set()
             relations_with_scores = []
             for relation_tuple in predicted_data["predicted_relations"]:
@@ -197,8 +257,8 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                 relations_seen.add(relation_remapped)
                 relations_with_scores.append((relation_remapped, relation_score, relation_pred))
 
-            relations_with_scores = sorted(relations_with_scores, key=lambda x: x[1], reverse=True)
-            relations_sorted = [x[0] for x in relations_with_scores]
+            relations_sorted = sorted(relations_with_scores, key=lambda x: x[1], reverse=True)
+            relations_sorted = [x[0] for x in relations_sorted]
 
             y_preds_doc  = []
             y_labels_doc = []
@@ -253,19 +313,22 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
                 y_labels.extend(y_labels_doc)
                 y_preds.extend(y_preds_doc)
 
+    retrieval_metrics_df = pd.DataFrame(retrieval_metrics)
+    mean_average_precision = sum_average_precision / number_of_documents
+    return retrieval_metrics_df, mean_average_precision, y_labels, y_preds, num_predicted, num_labeled, num_matched
 
-    metric_summary = pd.DataFrame(retrieval_metrics).describe().loc['mean'][['p', 'r', 'f1']]
 
-    f1 = f1_score(y_labels, y_preds, average=average)
-    classification_precision = precision_score(y_labels, y_preds, average=average)
-    classification_recall = recall_score(y_labels, y_preds, average=average)
+def summarize_relation_extraction_metrics(retrieval_metrics_df, classification_y_labels, classification_y_preds, average='binary'):
+    retrieval_metric_summary = retrieval_metrics_df.describe().loc['mean'][['p', 'r', 'f1']]
+    f1 = f1_score(classification_y_labels, classification_y_preds, average=average)
+    classification_precision = precision_score(classification_y_labels, classification_y_preds, average=average)
+    classification_recall = recall_score(classification_y_labels, classification_y_preds, average=average)
     classification_metrics = {
                                 "f1": f1,
                                 "p": classification_precision,
                                 "r": classification_recall
                             }
-    mean_average_precision = sum_average_precision / number_of_documents
-    return metric_summary, classification_metrics, mean_average_precision, num_predicted, num_labeled, num_matched
+    return retrieval_metric_summary, classification_metrics
 
 
 def prepare_data(gold_file, ner_file, clusters_file, relations_file):
@@ -397,15 +460,18 @@ def main(args):
         n = 2 if args.choose_with_2_ary else 4
         threshold_values = []
         for candidate_thresh in tqdm(construct_valid_thresholds()):
-            retrieval_metrics, classification_metrics, _, _, _, _ = compute_relations_metrics(
+            retrieval_metrics_df, _, y_labels, y_preds, _, _, _, _ = compute_relations_metrics(
                                                     dev_gold_data,
                                                     dev_predicted_ner,
                                                     dev_predicted_salient_clusters,
                                                     dev_predicted_relations,
                                                     dev_predicted_cluster_to_gold_cluster_map,
                                                     thresh=candidate_thresh,
-                                                    n=n,
-                                                    average='binary')
+                                                    n=n)
+            retrieval_metrics, classification_metrics = summarize_relation_extraction_metrics(retrieval_metrics_df,
+                                                                                              y_labels,
+                                                                                              y_preds,
+                                                                                              average='binary')
             if retrieval_metrics is None and classification_metrics is None:
                 continue
             f1 = retrieval_metrics['f1'] if args.choose_with_retrieval_metrics else classification_metrics['f1']
@@ -426,14 +492,18 @@ def main(args):
     for n in [2, 4]:
         thresh_string = str(thresh) if thresh is not None else "<fixed>"
         print(f"At threshold {thresh_string}:")
-        retrieval_metrics, classification_metrics, mean_average_precision, _, _, _ = compute_relations_metrics(gold_data,
+        retrieval_metrics_df, mean_average_precision, y_labels, y_preds, _, _, _ = compute_relations_metrics(gold_data,
                                                 predicted_ner,
                                                 predicted_salient_clusters,
                                                 predicted_relations,
                                                 predicted_cluster_to_gold_cluster_map,
                                                 n=n,
-                                                thresh=thresh,
-                                                average='macro')
+                                                thresh=thresh)
+
+        retrieval_metrics, classification_metrics = summarize_relation_extraction_metrics(retrieval_metrics_df,
+                                                                                            y_labels,
+                                                                                            y_preds,
+                                                                                            average='macro')
         print(f"Relation Metrics n={n}")
         print(retrieval_metrics)
         print(f"Retrieval MAP (mean average precision): {mean_average_precision}")
@@ -447,6 +517,8 @@ def main(args):
 
     """
         print("\nComputing AUC using sklearn built-in functions")
+        if not args.choose_dev_thresholds:
+            best_threshold = 0.5
         average_precision, f1, f1_fixed, pr_at_thresholds, closest_thresh_to_best = compute_weighted_auc(
                                         gold_data,
                                         predicted_ner,
@@ -468,14 +540,17 @@ def main(args):
         threshold_values = {}
         datasize_values = {}
         for candidate_thresh in tqdm(construct_valid_thresholds()):
-            retrieval_metrics, classification_metrics, _, num_predicted, num_labeled, num_matched = compute_relations_metrics(gold_data,
+            retrieval_metrics_df, _, y_labels, y_preds, num_predicted, num_labeled, num_matched = compute_relations_metrics(gold_data,
                                         predicted_ner,
                                         predicted_salient_clusters,
                                         predicted_relations,
                                         predicted_cluster_to_gold_cluster_map,
                                         n=n,
-                                        thresh=candidate_thresh,
-                                        average='macro')
+                                        thresh=candidate_thresh)
+            retrieval_metrics, classification_metrics = summarize_relation_extraction_metrics(retrieval_metrics_df,
+                                                                                                y_labels,
+                                                                                                y_preds,
+                                                                                                average='macro')
             if retrieval_metrics is None and classification_metrics is None:
                 continue
             f1 = retrieval_metrics['f1'] if args.choose_with_retrieval_metrics else classification_metrics['f1']
