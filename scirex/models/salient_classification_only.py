@@ -51,9 +51,11 @@ class SalientOnlyModel(Model):
         if use_citation_graph_embeddings:
             if citation_embedding_file == "" or doc_to_idx_mapping_file == "":
                 raise ValueError("Must supply citation embedding files to use graph embedding features")
-
-        self._document_embedding = initialize_graph_embeddings(citation_embedding_file, finetune_embedding=finetune_embedding)
-        self._doc_to_idx_mapping = json.load(open(doc_to_idx_mapping_file))
+            self._document_embedding = initialize_graph_embeddings(citation_embedding_file, finetune_embedding=finetune_embedding)
+            self._doc_to_idx_mapping = json.load(open(doc_to_idx_mapping_file))
+        else:
+            self._document_embedding = None
+            self._doc_to_idx_mapping = None
 
         modules = Params(modules)
 

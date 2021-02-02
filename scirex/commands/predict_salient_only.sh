@@ -1,5 +1,6 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export test_output_folder=test_outputs_relations/
+
+mkdir -p test_output_folder
 
 
 # These scripts require you've already generated files for NER and cluster predictions
@@ -14,7 +15,7 @@ fi
 
 echo "Predicting Salient Mentions"
 python3.7 scirex/predictors/predict_salient_mentions.py \
-$salient_only_archive \
+$scirex_archive \
 scirex_dataset/release_data/test.jsonl \
 $test_output_folder/salient_mentions_predictions.jsonl \
 $cuda_device

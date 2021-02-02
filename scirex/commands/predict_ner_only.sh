@@ -1,9 +1,9 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export ner_output_folder=test_outputs_ner/
+mkdir -p $test_output_folder
 
 echo "Predicting NER"
 python scirex/predictors/predict_ner.py \
-$ner_only_archive \
+$scirex_archive \
 $test_file \
 $ner_output_folder/ner_predictions.jsonl \
 $cuda_device
