@@ -45,7 +45,7 @@ python scirex/predictors/predict_n_ary_relations.py \
 $scirex_archive \
 $test_output_folder/ner_predictions.jsonl \
 $test_output_folder/salient_clusters_predictions.jsonl \
-$test_output_folder/relations_predictions.jsonl \
+$test_output_folder/relations_predictions_with_graph_embeddings_e2e.jsonl \
 $cuda_device
 
 echo "Predicting relations End-to-End with gold cluster filtering"

@@ -3,6 +3,7 @@ import gzip
 import json
 import jsonlines
 import os
+import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import random
@@ -10,9 +11,10 @@ import requests
 import time
 import wget #       pip install wget
 
-full_data_download_script = "/projects/metis0_ssd/users/vijayv/ScigraphIE/full_data_downloads.sh"
-metadata_download_script = "/projects/metis0_ssd/users/vijayv/ScigraphIE/metadata_downloads.sh"
-caches_directory = "/projects/metis0_ssd/users/vijayv/SciREX/s2orc_caches"
+
+full_data_download_script = "full_data_downloads.sh"
+metadata_download_script = "metadata_downloads.sh"
+caches_directory = "SciREX/s2orc_caches"
 
 '''
 S2ORC information must be accessed in batches, only fetching what you need at each time (due to its massive size).
@@ -66,9 +68,9 @@ def scirex_document_to_title(doc):
 
 
 def get_scirex_docids():
-    scirex_train = jsonlines.open("/projects/metis0_ssd/users/vijayv/SciREX/scirex_dataset/release_data/train.jsonl")
-    scirex_test = jsonlines.open("/projects/metis0_ssd/users/vijayv/SciREX/scirex_dataset/release_data/test.jsonl")
-    scirex_dev = jsonlines.open("/projects/metis0_ssd/users/vijayv/SciREX/scirex_dataset/release_data/dev.jsonl")
+    scirex_train = jsonlines.open("SciREX/scirex_dataset/release_data/train.jsonl")
+    scirex_test = jsonlines.open("SciREX/scirex_dataset/release_data/test.jsonl")
+    scirex_dev = jsonlines.open("SciREX/scirex_dataset/release_data/dev.jsonl")
 
     scirex_training_docids = []
     for doc in scirex_train:
@@ -165,7 +167,7 @@ def fetch_s2orc_keys_from_scirex_ids(scirex_doc_ids, data_download_commands):
         s2orc_hash_to_struct_mapping = {}
         start = time.perf_counter()
         for i, s2orc_shard_command in enumerate(data_download_commands):
-            output_path = f"/projects/metis0_ssd/users/vijayv/ScigraphIE/s2orc_downloads/{s2orc_shard_command[2]}"
+            output_path = f"s2orc_downloads/{s2orc_shard_command[2]}"
             data_url = eval(s2orc_shard_command[3])
             shard_id = get_shard_id_from_path(output_path, data_type="full_text")
             #
@@ -322,7 +324,7 @@ def fetch_s2orc_meta_rows_from_scirex_ids(scirex_document_metadata, metadata_dow
         scirex_s2orc_metadata = {}
         start = time.perf_counter()
         for i, s2orc_shard_command in enumerate(metadata_download_commands):
-            output_path = f"/projects/metis0_ssd/users/vijayv/ScigraphIE/s2orc_downloads/{s2orc_shard_command[2]}"
+            output_path = f"s2orc_downloads/{s2orc_shard_command[2]}"
             data_url = eval(s2orc_shard_command[3])
             shard_id = get_shard_id_from_path(output_path, data_type="metadata")
             print(f"Starting processing of shard {shard_id}")
@@ -388,7 +390,7 @@ def create_citation_graph_from_seed_nodes(seed_node_ids, metadata_download_comma
             # If we don't have a cache file already, then manually match s2orc and scirex entries
             # (takes several hours and requires downloading and purging tens of GB of data)
             for i, s2orc_shard_command in enumerate(metadata_download_commands):
-                output_path = f"/projects/metis0_ssd/users/vijayv/ScigraphIE/s2orc_downloads/{s2orc_shard_command[2]}"
+                output_path = f"s2orc_downloads/{s2orc_shard_command[2]}"
                 data_url = eval(s2orc_shard_command[3])
                 shard_id = get_shard_id_from_path(output_path, data_type="metadata")
                 print(f"Starting processing of shard {shard_id}")
@@ -442,7 +444,7 @@ def create_citation_graph_from_seed_nodes(seed_node_ids, metadata_download_comma
     return citation_graph_adjacency_lists
 
 
-def construct_neighbor_text(seed_node_ids, metadata_download_commands, full_text_download_commands, out_directory = "/projects/metis0_ssd/users/vijayv/SciREX/s2orc_caches/fulltexts", overwrite_cache=False, num_shards_to_use=None):
+def construct_neighbor_text(seed_node_ids, metadata_download_commands, full_text_download_commands, out_directory = "SciREX/s2orc_caches/fulltexts", overwrite_cache=False, num_shards_to_use=None):
     function_start = time.perf_counter()
     scigraph_documents_path = os.path.join(out_directory, "scigraph_full_documents.jsonl")
     doc_to_index_path = os.path.join(out_directory, "doc_to_line_idxs.json")
@@ -458,7 +460,7 @@ def construct_neighbor_text(seed_node_ids, metadata_download_commands, full_text
         doc_idx_mapping = {}
 
         for i, s2orc_shard_command in enumerate(full_text_download_commands):
-            output_path = f"/projects/metis0_ssd/users/vijayv/ScigraphIE/s2orc_downloads/{s2orc_shard_command[2]}"
+            output_path = f"s2orc_downloads/{s2orc_shard_command[2]}"
             data_url = eval(s2orc_shard_command[3])
             shard_id = get_shard_id_from_path(output_path, data_type="full_text")
             print(f"Starting processing of shard {shard_id}")
@@ -545,20 +547,54 @@ def get_citation_graph(radius, remap_to_scirex_id = False):
     return out_edges_scirex_keys, in_edges_scirex_keys
 
 
-def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True):
-    in_graph, out_graph = get_citation_graph(1, remap_to_scirex_id=remap_to_scirex_id)
+def compute_scirex_documents_graph_degrees(remap_to_scirex_id = True, degree_direction="both"):
+    assert degree_direction in ["both", "out", "in"]
+
+    out_graph, in_graph = get_citation_graph(1, remap_to_scirex_id=remap_to_scirex_id)
     scirex_paper_ids = list(get_scirex_docids())
     degrees = {}
     for doc_id in scirex_paper_ids:
         degrees[doc_id] = 0
-        degrees[doc_id] += len(in_graph.get(doc_id, []))
-        degrees[doc_id] += len(out_graph.get(doc_id, []))
+        if degree_direction == "both" or degree_direction == "in":
+            degrees[doc_id] += len(in_graph.get(doc_id, []))
+        if degree_direction == "both" or degree_direction == "out":
+            degrees[doc_id] += len(out_graph.get(doc_id, []))
     return degrees
 
 
+def draw_bar_chart(data, ylabel=None, xlabel=None, fname="/tmp/scratch.png", num_buckets=100, xlimit=None):
+    fig, ax = plt.subplots()
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if xlimit:
+        ax.set_xlim(0, xlimit)
+    n, bins, patches = ax.hist(data, num_buckets, color="lightblue", rwidth=0.8)
+    print(f"Wrote figure to {fname}")
+    fig.savefig(fname, dpi=400, bbox_inches='tight')
+    plt.tight_layout()
+    del fig
 
-def bucket_documents_by_graph_degree(test_set, num_buckets=6, remap_to_scirex_id = True):
-    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id)
+def plot_histogram_of_degrees():
+    out_graph, in_graph = get_citation_graph(1, remap_to_scirex_id=True)
+    scirex_paper_ids = list(get_scirex_docids())
+    in_degrees = {}
+    out_degrees={}
+    for doc_id in scirex_paper_ids:
+        in_degrees[doc_id] = 0
+        out_degrees[doc_id] = 0
+        in_degrees[doc_id] += len(in_graph.get(doc_id, []))
+        out_degrees[doc_id] += len(out_graph.get(doc_id, []))
+
+    in_degree_counts = list(in_degrees.values())
+    out_degree_counts = list(out_degrees.values())
+
+    plt.rcParams["font.size"] = "30"
+    draw_bar_chart(out_degree_counts, ylabel=None, xlabel="Out-degree", fname="/tmp/out_degree_histogram.pdf", num_buckets=30)
+    draw_bar_chart(in_degree_counts, ylabel="Frequency", xlabel="In-degree", fname="/tmp/in_degree_histogram.pdf", xlimit=2500, num_buckets=350)
+
+def bucket_documents_by_graph_degree(test_set, num_buckets=6, degree_direction="both", remap_to_scirex_id = True):
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
     test_degrees = {}
     for doc in test_set:
         test_degrees[doc] = all_degrees.get(doc, 0)
@@ -575,6 +611,37 @@ def bucket_documents_by_graph_degree(test_set, num_buckets=6, remap_to_scirex_id
         if degree > end:
             end = degree
         buckets[-1] = ((start, end), docs)
+    return buckets
+
+def bucket_documents_by_manual_buckets(test_set, buckets, degree_direction="both", remap_to_scirex_id = True):
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
+    buckets = [(bucket, []) for bucket in buckets]
+    for doc in test_set:
+        graph_degree = all_degrees.get(doc, 0)
+        for i in range(len(buckets)):
+            bucket_start = buckets[i][0][0]
+            bucket_end = buckets[i][0][1]
+            if graph_degree >= bucket_start and (graph_degree < bucket_end or (graph_degree <= bucket_end and i == len(buckets) - 1)):
+                buckets[i][1].append(doc)
+                break
+    assert set([x for y in buckets for x in y[1]]) == set(test_set), breakpoint()
+    return buckets
+
+
+
+
+def bucket_documents_by_manual_buckets(test_set, buckets, degree_direction="both", remap_to_scirex_id = True):
+    all_degrees = compute_scirex_documents_graph_degrees(remap_to_scirex_id=remap_to_scirex_id, degree_direction=degree_direction)
+    buckets = [(bucket, []) for bucket in buckets]
+    for doc in test_set:
+        graph_degree = all_degrees.get(doc, 0)
+        for i in range(len(buckets)):
+            bucket_start = buckets[i][0][0]
+            bucket_end = buckets[i][0][1]
+            if graph_degree >= bucket_start and (graph_degree < bucket_end or (graph_degree <= bucket_end and i == len(buckets) - 1)):
+                buckets[i][1].append(doc)
+                break
+    assert set([x for y in buckets for x in y[1]]) == set(test_set), breakpoint()
     return buckets
 
 
