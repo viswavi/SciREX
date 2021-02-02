@@ -13,13 +13,13 @@ export CUDA_DEVICE=$CUDA_DEVICE
 
 export IS_LOWERCASE=true
 
-if [ -z ${DATA_BASE_PATH+x} ]; export DATA_BASE_PATH=scirex_dataset/release_data; fi
+if [ -z ${DATA_BASE_PATH+x} ]; then export DATA_BASE_PATH=scirex_dataset/release_data; fi
 
 export TRAIN_PATH=$DATA_BASE_PATH/train.jsonl
 export DEV_PATH=$DATA_BASE_PATH/dev.jsonl
 export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
-if [ -z ${use_citation_graph_embeddings+x} ]; export use_citation_graph_embeddings=false; fi
+if [ -z ${use_citation_graph_embeddings+x} ]; then export use_citation_graph_embeddings=false; fi
 
 export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_scirex_full/$1}
 
