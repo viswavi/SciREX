@@ -1,21 +1,21 @@
 export test_file=scirex_dataset/release_data/test.jsonl
-export test_output_folder=test_outputs_relations/
+mkdir -p test_output_folder
 
-# echo "Predicting Relations End-to-End"
-# python scirex/predictors/predict_n_ary_relations.py \
-# $scirex_archive \
-# $test_output_folder/ner_predictions.jsonl \
-# $test_output_folder/salient_clusters_predictions.jsonl \
-# $test_output_folder/relations_predictions.jsonl \
-# $cuda_device
+echo "Predicting Relations End-to-End"
+python scirex/predictors/predict_n_ary_relations.py \
+$scirex_archive \
+$test_output_folder/ner_predictions.jsonl \
+$test_output_folder/salient_clusters_predictions.jsonl \
+$test_output_folder/relations_predictions.jsonl \
+$cuda_device
 
-# echo "Predicting relations End-to-End with gold cluster filtering"
-# python scirex/predictors/predict_n_ary_relations.py \
-# $scirex_archive \
-# $test_output_folder/ner_predictions.jsonl \
-# $test_output_folder/salient_clusters_predictions_using_gold.jsonl \
-# $test_output_folder/relations_predictions_gold_salient_clusters.jsonl \
-# $cuda_device
+echo "Predicting relations End-to-End with gold cluster filtering"
+python scirex/predictors/predict_n_ary_relations.py \
+$scirex_archive \
+$test_output_folder/ner_predictions.jsonl \
+$test_output_folder/salient_clusters_predictions_using_gold.jsonl \
+$test_output_folder/relations_predictions_gold_salient_clusters.jsonl \
+$cuda_device
 
 echo "Predicting Relations on gold clusters"
 python scirex/predictors/predict_n_ary_relations.py \
