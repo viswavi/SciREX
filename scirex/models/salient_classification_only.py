@@ -54,6 +54,7 @@ class SalientOnlyModel(Model):
             self._document_embedding = initialize_graph_embeddings(citation_embedding_file, finetune_embedding=finetune_embedding)
             self._doc_to_idx_mapping = json.load(open(doc_to_idx_mapping_file))
         else:
+            raise ValueError("Only training graph embedding models is supported right now. Use the original SciREX repo to train baselines.")
             self._document_embedding = None
             self._doc_to_idx_mapping = None
 

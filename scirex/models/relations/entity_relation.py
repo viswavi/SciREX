@@ -56,8 +56,11 @@ class RelationExtractor(Model):
         self._binary_scores = BinaryThresholdF1()
         self._global_scores = NAryRelationMetrics()
 
-        self._document_embedding = document_embedding
-        self._doc_to_idx_mapping = doc_to_idx_mapping
+        if document_embedding is not None:
+            self._document_embedding = document_embedding
+            self._doc_to_idx_mapping = doc_to_idx_mapping
+        else:
+            raise ValueError("Only training graph-embedding models is supported right now. Use the original SciREX repo to train baselines.")
 
         initializer(self)
 
