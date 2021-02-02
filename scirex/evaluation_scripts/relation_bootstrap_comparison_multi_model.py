@@ -132,7 +132,7 @@ def main():
             print(f"\nPaired Bootstrap Comparison of System A and System B on relation retrieval metric (\"{metric_type}\")")
             sys1_retrieval_list = [metric[metric_type] for metric in retrieval_a_list]
             sys2_retrieval_list = [metric[metric_type] for metric in retrieval_b_list]
-            assert len(sys1_retrieval_list) == len(sys2_retrieval_list)
+            assert len(sys1_retrieval_list[0]) == len(sys2_retrieval_list[0])
 
             gold = [None for _ in sys1_retrieval_list[0]]
             # Each bootstrap sample draws 50 items.
