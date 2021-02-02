@@ -212,8 +212,6 @@ def compute_relations_metrics(gold_data, predicted_ner, predicted_salient_cluste
 
     for types in combinations(used_entities, n):
         for doc in gold_data:
-            if doc["doc_id"] == "232b43584b2236669c0a53702ad89ab10c3886ea":
-                continue
             predicted_data = predicted_relations[doc["doc_id"]]
             mapping = predicted_cluster_to_gold_cluster_map[doc["doc_id"]]
 
