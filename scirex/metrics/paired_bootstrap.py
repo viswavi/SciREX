@@ -93,7 +93,6 @@ def eval_with_paired_bootstrap(gold, sys1, sys2,
   '''
   assert(len(gold) == len(sys1))
   assert(len(gold) == len(sys2))
-  
   # Preprocess the data appropriately for they type of eval
   gold = [eval_preproc(x, eval_type) for x in gold]
   sys1 = [eval_preproc(x, eval_type) for x in sys1]
@@ -155,7 +154,6 @@ def eval_with_hierarchical_paired_bootstrap(gold, sys1_list, sys2_list,
   paired bootstrap resampling to compare the accuracy of the two systems, with
   two-level sampling: first we sample a model, then we sample data to evaluate
   it on.
-
   :param gold: The correct labels
   :param sys1: The output of system 1
   :param sys2: The output of system 2

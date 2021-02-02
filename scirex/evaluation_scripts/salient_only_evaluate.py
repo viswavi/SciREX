@@ -5,6 +5,7 @@ from typing import Dict
 import pandas as pd
 
 from scirex.metrics.clustering_metrics import match_predicted_clusters_to_gold
+from scirex.metrics.f1 import compute_f1
 from scirex.predictors.utils import map_predicted_spans_to_gold, merge_method_subrelations
 from scirex_utilities.entity_utils import used_entities
 from scirex_utilities.json_utilities import load_jsonl
