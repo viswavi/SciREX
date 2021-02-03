@@ -5,6 +5,7 @@ function(p) {
 
   local bert_base_dim = 768,
   local lstm_hidden_size = 200,
+  local graph_embedding_dim = 128,
   local token_embedding_dim = bert_base_dim,
   local context_encoder_dim = 2 * lstm_hidden_size,
   local endpoint_span_embedding_dim = 2 * context_encoder_dim,
@@ -68,6 +69,10 @@ function(p) {
 
   model: {
     type: "scirex_model",
+    use_citation_graph_embeddings: p.use_citation_graph_embeddings,
+    citation_embedding_file: p.citation_embedding_file,
+    doc_to_idx_mapping_file: p.doc_to_idx_mapping_file,
+    finetune_embedding: p.finetune_embedding,
     text_field_embedder: text_field_embedder,
     loss_weights: p.loss_weights,
     lexical_dropout: 0.2,
@@ -85,21 +90,23 @@ function(p) {
       saliency_classifier: {
         mention_feedforward: make_feedforward(featured_embedding_dim),
         label_namespace: "span_saliency_labels",
-        n_features: n_features
+        n_features: n_features,
+        graph_embedding_dim: graph_embedding_dim,
       },
       n_ary_relation: {
-        antecedent_feedforward: make_feedforward(4*featured_embedding_dim),
-	      relation_cardinality: p.relation_cardinality
+        antecedent_feedforward: make_feedforward(4*featured_embedding_dim + graph_embedding_dim),
+	      relation_cardinality: p.relation_cardinality,
+        graph_embedding_dim: graph_embedding_dim
       },
     }
   },
   iterator: {
     type: "ie_batch",
-    batch_size: 50,
+    batch_size: 3,
   },
   validation_iterator: {
     type: "ie_batch",
-    batch_size: 50,
+    batch_size: 3,
   },
   trainer: {
     num_epochs: 20,

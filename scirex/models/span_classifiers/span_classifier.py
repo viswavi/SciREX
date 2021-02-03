@@ -34,8 +34,10 @@ class SpanClassifier(Model):
         self._label_namespace = label_namespace
 
         self._mention_feedforward = TimeDistributed(mention_feedforward)
-        features_dim = n_features + graph_embedding_dim if graph_embedding_dim is not None else n_features
-        self._ner_scorer = TimeDistributed(torch.nn.Linear(mention_feedforward.get_output_dim() + features_dim , 1))
+        self._use_graph_embeddings = graph_embedding_dim is not None
+
+        features_dim = n_features + graph_embedding_dim if self._use_graph_embeddings else n_features
+        self._ner_scorer = TimeDistributed(torch.nn.Linear(mention_feedforward.get_output_dim() + features_dim, 1))
         self._ner_metrics = BinaryThresholdF1()
         self._document_embedding = document_embedding
         self._doc_to_idx_mapping = doc_to_idx_mapping

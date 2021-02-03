@@ -21,10 +21,17 @@ export TEST_PATH=$DATA_BASE_PATH/test.jsonl
 
 if [ -z ${use_citation_graph_embeddings+x} ]; then export use_citation_graph_embeddings=false; fi
 
-export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_scirex_full/$1}
+export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_scirex_full_graph/$1}
 
 export bert_fine_tune=10,11,pooler
+export finetune_embedding=false
+
+if [ -z citation_embedding_file ]; then
+    citation_embedding_file=""
+    doc_to_idx_mapping_file=""
+fi
 
 nw=1 lw=1 rw=1 em=false \
 relation_cardinality=4 \
+use_citation_graph_embeddings=true \
 allennlp train -s $OUTPUT_BASE_PATH --include-package scirex $RECOVER $CONFIG_FILE

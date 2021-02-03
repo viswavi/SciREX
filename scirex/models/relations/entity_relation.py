@@ -38,7 +38,6 @@ class RelationExtractor(Model):
         # This is where we use the graph embeddings
         self._antecedent_scorer = TimeDistributed(torch.nn.Linear(antecedent_feedforward.get_output_dim(), 1))
         self._span_embedding_size =  (antecedent_feedforward.get_input_dim() - graph_embedding_dim) // 4
-        print(f"\n\n\n\nself._span_embedding_size: {self._span_embedding_size}\n\n\n\n")
         self._bias_vectors = torch.nn.Parameter(torch.zeros((1, 4, self._span_embedding_size)))
 
         self._relation_cardinality = relation_cardinality
