@@ -34,6 +34,8 @@ class RelationExtractor(Model):
         super(RelationExtractor, self).__init__(vocab, regularizer)
 
         self._antecedent_feedforward = TimeDistributed(antecedent_feedforward)
+
+        # This is where we use the graph embeddings
         self._antecedent_scorer = TimeDistributed(torch.nn.Linear(antecedent_feedforward.get_output_dim(), 1))
         self._span_embedding_size =  (antecedent_feedforward.get_input_dim() - graph_embedding_dim) // 4
         self._bias_vectors = torch.nn.Parameter(torch.zeros((1, 4, self._span_embedding_size)))
@@ -53,8 +55,11 @@ class RelationExtractor(Model):
         self._binary_scores = BinaryThresholdF1()
         self._global_scores = NAryRelationMetrics()
 
-        self._document_embedding = document_embedding
-        self._doc_to_idx_mapping = doc_to_idx_mapping
+        if document_embedding is not None:
+            self._document_embedding = document_embedding
+            self._doc_to_idx_mapping = doc_to_idx_mapping
+        else:
+            raise ValueError("Only training graph-embedding models is supported right now. Use the original SciREX repo to train baselines.")
 
         initializer(self)
 
@@ -191,6 +196,7 @@ class RelationExtractor(Model):
 
         relation_embeddings = self._antecedent_feedforward(relation_embeddings_augmented) #(P, R, e)
         relation_embeddings = relation_embeddings.max(0, keepdim=True)[0]
+
         relation_logits = self._antecedent_scorer(relation_embeddings).squeeze(-1).squeeze(0)
         relation_scores = torch.sigmoid(relation_logits)
         return relation_scores, relation_logits

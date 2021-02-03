@@ -17,6 +17,7 @@ import logging
 logging.basicConfig(format="%(asctime)s:%(levelname)s:%(message)s", level=logging.INFO)
 
 
+
 def predict(archive_folder, test_file, output_file, cuda_device):
     '''
     test_file contains atleast - doc_id, sections, sentences, ner in scirex format.
@@ -29,6 +30,7 @@ def predict(archive_folder, test_file, output_file, cuda_device):
     import_submodules("scirex")
     logging.info("Loading Model from %s", archive_folder)
     archive_file = os.path.join(archive_folder, "model.tar.gz")
+
     archive = load_archive(archive_file, cuda_device)
     model = archive.model
     model.eval()
@@ -42,7 +44,7 @@ def predict(archive_folder, test_file, output_file, cuda_device):
     dataset_reader.prediction_mode = True
     instances = dataset_reader.read(test_file)
 
-    for instance in instances :
+    for instance in instances:
         batch = Batch([instance])
         batch.index_instances(model.vocab)
 
