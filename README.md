@@ -1,3 +1,5 @@
+See https://github.com/viswavi/ScigraphIE for detailed README on how to use the scripts in this branch
+
 # SciREX : A Challenge Dataset for Document-Level Information Extraction
 
 Our data can be found here : https://github.com/allenai/SciREX/blob/master/scirex_dataset/release_data.tar.gz
