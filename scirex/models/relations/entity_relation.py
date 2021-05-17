@@ -59,7 +59,8 @@ class RelationExtractor(Model):
             self._document_embedding = document_embedding
             self._doc_to_idx_mapping = doc_to_idx_mapping
         else:
-            raise ValueError("Only training graph-embedding models is supported right now. Use the original SciREX repo to train baselines.")
+            self._document_embedding = None
+            self._doc_to_idx_mapping = None
 
         initializer(self)
 
@@ -184,15 +185,16 @@ class RelationExtractor(Model):
         # (B, NS, NS, E)
         relation_embeddings = relation_embeddings.view(relation_embeddings.shape[0], relation_embeddings.shape[1], -1) #(P, R, E*4)
 
-        # TODO(Vijay)
-        document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=relation_embeddings.device)
-        assert len(set(document_idxs.tolist())) and len(document_idxs) > 0, breakpoint()
+        if self._document_embedding is None:
+            relation_embeddings_augmented = relation_embeddings
+        else:
+            document_idxs = torch.tensor([self._doc_to_idx_mapping[meta["doc_id"]] for meta in metadata], device=relation_embeddings.device)
+            assert len(set(document_idxs.tolist())) and len(document_idxs) > 0, breakpoint()
 
-        graph_features = self._document_embedding(document_idxs)
-        (batch_size, num_spans, _) = relation_embeddings.shape
-        graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
-
-        relation_embeddings_augmented = torch.cat([relation_embeddings, graph_features], dim=-1)
+            graph_features = self._document_embedding(document_idxs)
+            (batch_size, num_spans, _) = relation_embeddings.shape
+            graph_features = graph_features.repeat(1, num_spans).view(batch_size, num_spans, -1)
+            relation_embeddings_augmented = torch.cat([relation_embeddings, graph_features], dim=-1)
 
         relation_embeddings = self._antecedent_feedforward(relation_embeddings_augmented) #(P, R, e)
         relation_embeddings = relation_embeddings.max(0, keepdim=True)[0]

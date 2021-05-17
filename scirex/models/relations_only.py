@@ -45,7 +45,7 @@ class RelationsOnlyModel(Model):
         self._context_layer = context_layer
         self._lexical_dropout = torch.nn.Dropout(p=lexical_dropout)
 
-        if use_citation_graph_embeddings:
+        if use_citation_graph_embeddings is True or (isinstance(use_citation_graph_embeddings, str) and use_citation_graph_embeddings.lower() == "true"):
             if citation_embedding_file == "" or doc_to_idx_mapping_file == "":
                 raise ValueError("Must supply citation embedding files to use graph embedding features")
             self._document_embedding = initialize_graph_embeddings(citation_embedding_file, finetune_embedding=False)
