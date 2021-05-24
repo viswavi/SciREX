@@ -245,6 +245,7 @@ class ScirexModel(Model):
                 metadata=metadata,
             )
 
+        breakpoint()
         return output_saliency
 
     def relation_forward(self, output_span_embedding, metadata, relation_to_cluster_ids, span_cluster_labels):

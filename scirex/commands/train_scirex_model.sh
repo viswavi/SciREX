@@ -28,11 +28,13 @@ export OUTPUT_BASE_PATH=${OUTPUT_DIR:-outputs/pwc_outputs/experiment_scirex_full
 
 export bert_fine_tune=10,11,pooler
 export finetune_embedding=false
+export graph_embedding_dim=128
 
 if [ -z ${citation_embedding_file+x} ]; then
     export citation_embedding_file=""
     export doc_to_idx_mapping_file=""
     export use_citation_graph_embeddings=false
+    export graph_embedding_dim=0
 fi
 
 nw=1 lw=1 rw=1 em=false \
